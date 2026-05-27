@@ -203,35 +203,38 @@ function Overview() {
         </Button>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label={text(locale, "Thu nhập", "Income")}
-          value={formatCurrency(summary.income, locale)}
-          hint={text(locale, "Lương và hoàn tiền", "Salary and refunds")}
-          positive
-        />
-        <StatCard
-          label={text(locale, "Chi tiêu", "Spending")}
-          value={formatCurrency(summary.spend, locale)}
-          hint={text(locale, "Tổng khoản ra", "Total outflow")}
-        />
-        <StatCard
-          label={text(locale, "Còn có thể chi", "Available to spend")}
-          value={formatCurrency(summary.net, locale)}
-          hint={text(locale, "Thu nhập trừ chi tiêu", "Income minus spending")}
-          positive
-        />
-        <StatCard
-          label={text(locale, "Cần xác nhận", "Needs review")}
-          value={`${summary.reviewCount}`}
-          hint={text(
-            locale,
-            "Phân loại AI chưa chắc chắn",
-            "Uncertain AI classifications"
-          )}
-          warning={summary.reviewCount > 0}
-        />
-      </div>
+      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+        {/* CỘT TRÁI + GIỮA (Main Content) */}
+        <div className="flex flex-col gap-6">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label={text(locale, "Thu nhập", "Income")}
+              value={formatCurrency(summary.income, locale)}
+              hint={text(locale, "Lương và hoàn tiền", "Salary and refunds")}
+              positive
+            />
+            <StatCard
+              label={text(locale, "Chi tiêu", "Spending")}
+              value={formatCurrency(summary.spend, locale)}
+              hint={text(locale, "Tổng khoản ra", "Total outflow")}
+            />
+            <StatCard
+              label={text(locale, "Còn có thể chi", "Available to spend")}
+              value={formatCurrency(summary.net, locale)}
+              hint={text(locale, "Thu nhập trừ chi tiêu", "Income minus spending")}
+              positive
+            />
+            <StatCard
+              label={text(locale, "Cần xác nhận", "Needs review")}
+              value={`${summary.reviewCount}`}
+              hint={text(
+                locale,
+                "Phân loại AI chưa chắc chắn",
+                "Uncertain AI classifications"
+              )}
+              warning={summary.reviewCount > 0}
+            />
+          </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <Card>
@@ -347,8 +350,14 @@ function Overview() {
               </EmptyHeader>
             </Empty>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        </div>
+        {/* CỘT PHẢI (AI Coach) */}
+        <div className="hidden xl:flex flex-col gap-6">
+          <CoachWidget />
+        </div>
+      </div>
     </Content>
   )
 }
@@ -1240,6 +1249,81 @@ function Recurring() {
         </CardContent>
       </Card>
     </Content>
+  )
+}
+
+function CoachWidget() {
+  const { state, locale } = useMoneyCoach()
+  const summary = summarize(state.transactions)
+  const prompts: [string, string, string] = [
+    text(locale, "Tôi chi nhiều nhất vào đâu?", "Where did I spend the most?"),
+    text(
+      locale,
+      "Subscription hàng tháng là bao nhiêu?",
+      "What are my monthly subscriptions?"
+    ),
+    text(
+      locale,
+      "Giao dịch nào cần kiểm tra?",
+      "Which transactions need review?"
+    ),
+  ]
+  const [question, setQuestion] = React.useState(prompts[0])
+
+  const recurringTotal = state.transactions
+    .filter((transaction) => transaction.recurring)
+    .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
+  const answer = question.toLowerCase().includes("subscription")
+    ? text(
+        locale,
+        `Bạn có ${formatCurrency(recurringTotal, locale)} khoản định kỳ được đánh dấu trong dữ liệu hiện tại.`,
+        `You have ${formatCurrency(recurringTotal, locale)} in recurring payments marked in the current data.`
+      )
+    : question.toLowerCase().includes("review") ||
+        question.toLowerCase().includes("kiểm tra")
+      ? text(
+          locale,
+          `${summary.reviewCount} giao dịch đang chờ xác nhận trước khi insight được xem là hoàn chỉnh.`,
+          `${summary.reviewCount} transactions are pending confirmation before insights are final.`
+        )
+      : text(
+          locale,
+          `Danh mục lớn nhất là ${summary.byCategory[0]?.category ?? "N/A"} với ${formatCurrency(summary.byCategory[0]?.amount ?? 0, locale)}.`,
+          `Your largest category is ${summary.byCategory[0]?.category ?? "N/A"} at ${formatCurrency(summary.byCategory[0]?.amount ?? 0, locale)}.`
+        )
+
+  return (
+    <Card className="flex-1 flex flex-col backdrop-blur-md bg-background/80 shadow-lg border-primary/20">
+      <CardHeader className="pb-3 border-b border-border/50">
+        <Badge variant="secondary" className="w-fit mb-2 bg-primary/10 text-primary hover:bg-primary/20">
+          <BotIcon data-icon="inline-start" className="w-3 h-3 mr-1" />
+          AI Coach
+        </Badge>
+        <CardTitle className="text-lg leading-tight">{question}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 pt-4 flex-1">
+        <p className="text-sm leading-relaxed">{answer}</p>
+        
+        <div className="mt-auto space-y-2">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+            {text(locale, "Gợi ý hỏi AI", "Ask AI")}
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {prompts.map((prompt) => (
+              <Button
+                key={prompt}
+                variant={question === prompt ? "secondary" : "ghost"}
+                size="sm"
+                className="justify-start text-xs text-left whitespace-normal h-auto py-1.5"
+                onClick={() => setQuestion(prompt)}
+              >
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

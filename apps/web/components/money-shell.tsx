@@ -58,10 +58,18 @@ export function MoneyShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/90 px-4 backdrop-blur md:px-6">
           <SidebarTrigger />
           <Separator orientation="vertical" className="mx-2 h-4" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">
+          <div className="min-w-0 flex-1 flex items-center">
+            <p className="truncate text-sm font-medium mr-4">
               {pageName[locale === "vi" ? 0 : 1]}
             </p>
+            <div className="hidden lg:flex items-center justify-center flex-1 mx-4">
+              <Link href="/app/import" className="flex items-center gap-2 px-6 py-1.5 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors w-full max-w-md justify-center">
+                <UploadIcon className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {locale === "vi" ? "[ Kéo thả sao kê CSV vào đây ] 🗂️" : "[ Drag and drop CSV statement here ] 🗂️"}
+                </span>
+              </Link>
+            </div>
           </div>
           <Badge variant="outline" className="hidden sm:inline-flex">
             Demo data
@@ -84,7 +92,7 @@ export function MoneyShell({ children }: { children: React.ReactNode }) {
           >
             {resolvedTheme === "dark" ? <SunIcon /> : <MoonStarIcon />}
           </Button>
-          <Button asChild className="hidden sm:inline-flex">
+          <Button asChild className="hidden sm:inline-flex lg:hidden">
             <Link href="/app/import">
               <UploadIcon data-icon="inline-start" />
               {locale === "vi" ? "Nhập CSV" : "Import CSV"}
