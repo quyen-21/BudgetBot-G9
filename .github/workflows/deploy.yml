@@ -104,9 +104,3 @@ jobs:
             --delete \
             --cache-control "public, max-age=0, must-revalidate" \
             --include "*.html"
-
-      - name: Invalidate CloudFront Cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*"

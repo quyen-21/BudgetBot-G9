@@ -53,12 +53,7 @@ output "frontend_bucket_name" {
   value       = aws_s3_bucket.frontend.bucket
 }
 
-output "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID for cache invalidation"
-  value       = aws_cloudfront_distribution.frontend.id
-}
-
-output "cloudfront_domain" {
-  description = "CloudFront domain name to access the frontend"
-  value       = aws_cloudfront_distribution.frontend.domain_name
+output "frontend_website_endpoint" {
+  description = "S3 static website endpoint to access the frontend"
+  value       = aws_s3_bucket_website_configuration.frontend.website_endpoint
 }
