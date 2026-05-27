@@ -41,3 +41,27 @@ Respond with JSON only. No explanation.
 ## 4. UI/UX
 - Giao diện Dark Mode sang trọng, hỗ trợ đa ngôn ngữ (i18n).
 - Tích hợp biểu đồ Recharts mượt mà, phân loại rõ ràng, và quan trọng nhất là tính năng Hỗ trợ đọc RTL cho ngôn ngữ đặc thù (như Ả Rập, Hebrew).
+
+## 5. Báo cáo Chi phí (Cost Explorer & Drivers)
+*Yêu cầu nộp: 3 tấm ảnh chụp Cost Explorer (Cuối D1, D2, Sáng Demo).*
+- [ ] Ảnh D1: `docs/evidence_images/cost/day1_cost.png`
+- [ ] Ảnh D2: `docs/evidence_images/cost/day2_cost.png`
+- [ ] Ảnh Demo: `docs/evidence_images/cost/demo_cost.png`
+
+**Top 3 Cost Drivers:**
+1. AWS RDS (db.t4g.micro)
+2. ... (Chờ cập nhật thực tế)
+3. ... (Chờ cập nhật thực tế)
+
+## 6. Bảo mật (Security - IAM & Network)
+- **IAM:** Đã thiết lập Least-privilege. Phân quyền chính xác cho Lambda chỉ được phép Read/Write S3 bucket cụ thể và truy cập RDS.
+- **Network:** Database được cấu hình không mở Public Access (Chỉ truy cập thông qua Lambda hoặc EC2 Bastion host nằm trong cùng VPC).
+
+## 7. Theo dõi hệ thống (Monitoring)
+*Yêu cầu nộp: Ảnh chụp dashboard giám sát.*
+- [ ] Ảnh CloudWatch: `docs/evidence_images/monitoring/cloudwatch.png`
+- Đã thiết lập Cost Anomaly Detection và Budget Alerts.
+
+## 8. Bài học rút ra (Lessons Learned)
+*(Dành để viết khoảng 200 chữ về những khó khăn, tradeoff đã cân nhắc, và bài học khi triển khai hạ tầng 48h...)*
+- [ ] Chờ cập nhật sau khi code xong.
