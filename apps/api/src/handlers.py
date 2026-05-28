@@ -143,7 +143,10 @@ def handle_upload(
 
     rules = userstore.list_rules(user_id)
     
-    txns = []
+    txns_with_idx = []
+    llm_tasks = []
+    
+    # 1. Phân loại nhanh các giao dịch khớp Rule
     for i, row in enumerate(rows):
         desc = row["description"]
         desc_lower = desc.lower()
@@ -152,20 +155,47 @@ def handle_upload(
         # Check Rules first
         matched_rule = next((r for r in rules if r["contains"].lower() in desc_lower), None)
         
-        category = "Other"
-        confidence = 0.0
-        status = "NEEDS_REVIEW"
-        merchant = _normalize_merchant(desc)
-        recurring = False
-
         if matched_rule:
             category = matched_rule["category"]
             confidence = 1.0
             status = "AUTO_APPROVED"
             rules_applied += 1
+            
+            txn = {
+                "id": f"{import_id}-txn-{i+1}",
+                "importId": import_id,
+                "date": row["date"],
+                "description": desc,
+                "merchant": _normalize_merchant(desc),
+                "amount": amount,
+                "category": category,
+                "confidence": confidence,
+                "status": status,
+                "classifiedBy": "RULE",
+                "recurring": False
+            }
+            txns_with_idx.append((i, txn))
         else:
-            ai_calls += 1
-            cat_result = ai_client.categorize(description=desc, amount=amount, date=row["date"])
+            llm_tasks.append((i, row))
+            
+    # 2. Xử lý song song các tác vụ gọi LLM (Bedrock) bằng ThreadPoolExecutor (Tối đa 10 threads)
+    if llm_tasks:
+        from concurrent.futures import ThreadPoolExecutor
+        
+        def run_categorize(task):
+            idx, r = task
+            try:
+                res = ai_client.categorize(description=r["description"], amount=r["amount"], date=r["date"])
+                return idx, r, res
+            except Exception as e:
+                print(f"Error categorizing row {idx}: {e}")
+                return idx, r, {"category": "Other", "confidence": 0.0}
+        
+        max_workers = min(len(llm_tasks), 10)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            results = list(executor.map(run_categorize, llm_tasks))
+            
+        for idx, r, cat_result in results:
             category = cat_result["category"]
             confidence = float(cat_result["confidence"])
             if confidence >= 0.8:
@@ -173,22 +203,30 @@ def handle_upload(
             else:
                 status = "NEEDS_REVIEW"
                 reviews_needed += 1
-        
-        txn = {
-            "id": f"{import_id}-txn-{i+1}",
-            "importId": import_id,
-            "date": row["date"],
-            "description": desc,
-            "merchant": merchant,
-            "amount": amount,
-            "category": category,
-            "confidence": confidence,
-            "status": status,
-            "classifiedBy": "RULE" if matched_rule else "AI",
-            "recurring": recurring
-        }
+                
+            ai_calls += 1
+            txn = {
+                "id": f"{import_id}-txn-{idx+1}",
+                "importId": import_id,
+                "date": r["date"],
+                "description": r["description"],
+                "merchant": _normalize_merchant(r["description"]),
+                "amount": r["amount"],
+                "category": category,
+                "confidence": confidence,
+                "status": status,
+                "classifiedBy": "AI",
+                "recurring": False
+            }
+            txns_with_idx.append((idx, txn))
+            
+    # 3. Khôi phục thứ tự các dòng giao dịch ban đầu
+    txns_with_idx.sort(key=lambda x: x[0])
+    final_txns = [item[1] for item in txns_with_idx]
+    
+    # 4. Lưu toàn bộ giao dịch vào database
+    for txn in final_txns:
         userstore.add_transaction(user_id, txn)
-        txns.append(txn)
 
     return {
         "id": import_id,
@@ -197,7 +235,7 @@ def handle_upload(
         "rows": len(rows),
         "rows_parsed": len(rows),
         "rows_inserted": len(rows),
-        "sample_categorized": txns,
+        "sample_categorized": final_txns,
         "ruleMatches": rules_applied,
         "aiCalls": ai_calls,
         "reviewsNeeded": reviews_needed,
