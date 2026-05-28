@@ -191,6 +191,29 @@ async def upload(
         raise _bad_request(exc.code, exc.message, **payload) from exc
 
 
+class ChatMessage(BaseModel):
+    message: str
+    image: Optional[str] = None
+    session_id: Optional[str] = None
+
+
+@app.post("/chat")
+def chat(
+    payload: ChatMessage,
+    user_id: str = Depends(get_current_user),
+) -> dict:
+    if not payload.message.strip() and not payload.image:
+        raise _bad_request("EMPTY_MESSAGE", "Message or image must be provided")
+    return handlers.handle_chat(
+        user_id=user_id,
+        question=payload.message,
+        userstore=userstore,
+        ai_client=ai_client,
+        image=payload.image,
+        session_id=payload.session_id,
+    )
+
+
 @app.get("/summary")
 def summary(
     month: Optional[str] = None,
