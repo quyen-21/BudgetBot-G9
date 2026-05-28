@@ -104,12 +104,13 @@ Respond with JSON only. No explanation.
 | `budget-bot-vpce-sg` | Port 443 TCP — chỉ từ VPC CIDR `10.0.0.0/16` | All traffic | ✅ Chỉ cho phép HTTPS nội bộ VPC |
 
 ## 8. Monitoring (Optional Capability #8: Full Observability)
-- [ ] CloudWatch Dashboard Screenshot: `docs/evidence_images/monitoring/cloudwatch.png`
-  - Widget 1: Lambda Invocations (Upload + Chat)
-  - Widget 2: API Gateway 4xx/5xx error rate
-  - Widget 3: Custom metric (xem bên dưới)
-- **Custom Metric:** Sử dụng Embedded Metric Format (EMF) ghi log có cấu trúc để CloudWatch tự bóc tách custom metrics (`BedrockLatencyMs`, `RuleMatchRate`) mà không tốn thêm chi phí.
-- **Alarm:** CloudWatch Alarm trên Lambda Error Rate. Trạng thái: OK hoặc ALARM (đã chạy demo path để generate data points).
+- **Full Observability Evidence Folder:** `docs/evidence_images/monitoring/Full_Observability/`
+- **Alarm evidence:**
+  - [Request 01 - Public HTTPS App Unavailable](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable.md)
+  - [Request 02 - Backend Compute Failure](evidence_images/monitoring/Full_Observability/alarm/02_backend_compute_failure.md)
+  - [Request 03 - AI Feature End-to-End Failure](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure.md)
+- **CloudWatch Alarms:** Synthetics public endpoint alarms, Lambda backend compute alarms, Bedrock AI alarms, and composite alarms for user-facing critical impact.
+- **Evidence images:** Stored under `docs/evidence_images/monitoring/Full_Observability/alarm/<task>/Picture/`.
 - **Log Insights Query (đã lưu):**
   ```sql
   fields @timestamp, @message, @logStream

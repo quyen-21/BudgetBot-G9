@@ -1,0 +1,35 @@
+const https = require('https');
+const { URL } = require('url');
+
+exports.handler = async () => {
+  const target = process.env.PUBLIC_URL;
+  if (!target) throw new Error('PUBLIC_URL is required');
+  const url = new URL(target);
+  const body = JSON.stringify({ message: 'health check' });
+
+  const result = await new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: url.hostname,
+      path: url.pathname + url.search,
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(body)
+      },
+      timeout: 30000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve({ statusCode: res.statusCode, body: data }));
+    });
+    req.on('timeout', () => req.destroy(new Error('Request timed out')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+
+  if (result.statusCode < 200 || result.statusCode >= 400) {
+    throw new Error(`Public endpoint returned ${result.statusCode}: ${result.body}`);
+  }
+  return result;
+};
