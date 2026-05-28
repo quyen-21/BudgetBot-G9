@@ -54,7 +54,7 @@ jobs:
           
           # Tạo file entry point cho Lambda (index.py với hàm handler)
           cat > ./package/index.py << 'EOF'
-          """Lambda entry point — wraps FastAPI app with Mangum."""
+          """Lambda entry point — wraps FastAPI app with Mangum and Bedrock Agent Handler."""
           import os
           # Cấu hình cho môi trường AWS Lambda
           os.environ.setdefault("AI_BACKEND", "bedrock")
@@ -63,8 +63,15 @@ jobs:
 
           from mangum import Mangum
           from src.app import app
+          from src.adapters.bedrock_agent_handler import handle_bedrock_agent_event
 
-          handler = Mangum(app, lifespan="off")
+          mangum_handler = Mangum(app, lifespan="off")
+
+          def handler(event, context):
+              # Check if the event is from Bedrock Agent Action Group
+              if isinstance(event, dict) and "actionGroup" in event:
+                  return handle_bedrock_agent_event(event, context)
+              return mangum_handler(event, context)
           EOF
           
           # Nén thành file zip

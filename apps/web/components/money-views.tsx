@@ -1719,7 +1719,7 @@ function CoachWidget() {
 }
 
 function Coach() {
-  const { state, locale } = useMoneyCoach()
+  const { state, locale, askCoach } = useMoneyCoach()
   const prompts: [string, string, string] = [
     text(locale, "Tôi chi nhiều nhất vào đâu?", "Where did I spend the most?"),
     text(
@@ -1749,7 +1749,7 @@ function Coach() {
   const [isThinking, setIsThinking] = React.useState(false)
   const messageCounter = React.useRef(0)
 
-  function sendQuestion(question: string) {
+  async function sendQuestion(question: string) {
     const trimmed = question.trim()
     if (!trimmed || isThinking) return
 
@@ -1761,27 +1761,33 @@ function Coach() {
       content: trimmed,
       createdAt: "",
     }
-    const coachResponse = buildCoachResponse(
-      trimmed,
-      state.transactions,
-      locale
-    )
-    const assistantMessage: CoachMessage = {
-      id: `assistant-${messageId}`,
-      role: "assistant",
-      content: coachResponse.answer,
-      steps: coachResponse.steps,
-      sources: coachResponse.sources,
-      createdAt: "",
-    }
 
     setMessages((current) => [...current, userMessage])
     setDraft("")
     setIsThinking(true)
-    window.setTimeout(() => {
+
+    try {
+      const answer = await askCoach(trimmed)
+      const assistantMessage: CoachMessage = {
+        id: `assistant-${messageId}`,
+        role: "assistant",
+        content: answer,
+        createdAt: "",
+      }
       setMessages((current) => [...current, assistantMessage])
+    } catch (err) {
+      const errorMessage: CoachMessage = {
+        id: `assistant-error-${messageId}`,
+        role: "assistant",
+        content: locale === "vi" 
+          ? "Xin lỗi, tôi gặp sự cố khi kết nối tới máy chủ AI Coach." 
+          : "Sorry, I encountered an issue connecting to the AI Coach server.",
+        createdAt: "",
+      }
+      setMessages((current) => [...current, errorMessage])
+    } finally {
       setIsThinking(false)
-    }, 250)
+    }
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -1794,8 +1800,8 @@ function Coach() {
       title={text(locale, "Trợ lý tài chính", "Money coach")}
       description={text(
         locale,
-        "Insight demo chỉ dựa trên giao dịch đã lưu, không phải tư vấn đầu tư.",
-        "Demo insights are grounded in stored transactions and are not investment advice."
+        "Insight tài chính của bạn được phân tích bảo mật bằng trí tuệ nhân tạo.",
+        "Your financial insights analyzed securely by artificial intelligence."
       )}
     >
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
@@ -1827,9 +1833,9 @@ function Coach() {
         </Card>
         <Card className="min-h-[560px]">
           <CardHeader>
-            <Badge variant="secondary">
-              <BotIcon data-icon="inline-start" />
-              {text(locale, "Chat demo", "Demo chat")}
+            <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+              <BotIcon data-icon="inline-start" className="mr-1 h-3 w-3" />
+              AI Money Coach
             </Badge>
             <CardTitle>
               {text(locale, "Hỏi Money Coach", "Ask Money Coach")}
@@ -1837,8 +1843,8 @@ function Coach() {
             <CardDescription>
               {text(
                 locale,
-                "Câu trả lời v1 được tạo local từ summary và giao dịch đã lưu.",
-                "V1 answers are generated locally from stored transaction summaries."
+                "Câu trả lời được phân tích trực tiếp bởi AI Bedrock dựa trên dữ liệu chi tiêu thực tế của bạn.",
+                "Answers are analyzed in real-time by AI Bedrock grounded in your actual spending data."
               )}
             </CardDescription>
           </CardHeader>
@@ -1958,8 +1964,8 @@ function Coach() {
               <AlertDescription>
                 {text(
                   locale,
-                  "Nguồn: tổng hợp local trên summary và giao dịch đang lưu trong trình duyệt. Phase AWS sẽ gọi Bedrock qua backend.",
-                  "Source: local aggregation over summaries and transactions stored in the browser. The AWS phase will call Bedrock through the backend."
+                  "Nguồn: Trợ lý tài chính được vận hành trực tiếp bởi Bedrock qua AWS API Gateway và PostgreSQL thực tế.",
+                  "Source: Personal finance assistant powered directly by Bedrock via AWS API Gateway and PostgreSQL."
                 )}
               </AlertDescription>
             </Alert>

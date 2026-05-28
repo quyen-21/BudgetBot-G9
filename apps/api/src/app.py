@@ -122,6 +122,24 @@ async def upload(
         raise _bad_request(exc.code, exc.message, **payload) from exc
 
 
+class ChatMessage(BaseModel):
+    message: str
+
+@app.post("/chat")
+def chat(
+    payload: ChatMessage,
+    user_id: str = Depends(get_current_user),
+) -> dict:
+    if not payload.message.strip():
+        raise _bad_request("EMPTY_MESSAGE", "Message cannot be empty")
+    return handlers.handle_chat(
+        user_id=user_id,
+        question=payload.message,
+        userstore=userstore,
+        ai_client=ai_client,
+    )
+
+
 @app.get("/summary")
 def summary(
     month: Optional[str] = None,
