@@ -12,12 +12,29 @@ import {
   ScanSearchIcon,
   ShieldCheckIcon,
   UploadIcon,
+  LogOut,
+  Sparkles,
+  UserIcon,
 } from "lucide-react"
 
 import { useMoneyCoach } from "@/components/money-coach-provider"
 import { Alert, AlertDescription } from "@workspace/ui/components/alert"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@workspace/ui/components/avatar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import {
   Card,
   CardContent,
@@ -60,17 +77,65 @@ export function LandingPage() {
             <LanguagesIcon data-icon="inline-start" />
             {locale === "vi" ? "EN" : "VI"}
           </Button>
-          <Button variant="ghost" asChild className="hidden sm:inline-flex">
-            <Link href="/auth/sign-in">
-              <Copy vi="Đăng nhập" en="Sign in" />
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/auth/sign-in">
-              <Copy vi="Dùng bản demo" en="Try demo" />
-              <ArrowRightIcon data-icon="inline-end" />
-            </Link>
-          </Button>
+
+          {signedIn ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="text-[10px]">MC</AvatarFallback>
+                  </Avatar>
+                  <span className="hidden sm:inline">Demo User</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">Demo User</p>
+                    <p className="text-xs leading-none text-muted-foreground">demo@example.com</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem asChild>
+                    <Link href="/app/overview" className="cursor-pointer w-full">
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      <span>{locale === "vi" ? "Dashboard của tôi" : "My Dashboard"}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    <span>{locale === "vi" ? "Nâng cấp Pro" : "Upgrade to Pro"}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => {
+                    signOut()
+                    router.push("/")
+                  }}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>{locale === "vi" ? "Đăng xuất" : "Log out"}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <>
+              <Button variant="ghost" asChild className="hidden sm:inline-flex">
+                <Link href="/auth/sign-in">
+                  <Copy vi="Đăng nhập" en="Sign in" />
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/auth/sign-in">
+                  <Copy vi="Dùng bản demo" en="Try demo" />
+                  <ArrowRightIcon data-icon="inline-end" />
+                </Link>
+              </Button>
+            </>
+          )}
         </div>
       </header>
 
