@@ -76,6 +76,7 @@ import {
 } from "@workspace/ui/components/field"
 import { Input } from "@workspace/ui/components/input"
 import { Progress } from "@workspace/ui/components/progress"
+import { ScrollArea } from "@workspace/ui/components/scroll-area"
 import {
   Select,
   SelectContent,
@@ -101,9 +102,267 @@ import {
   TableRow,
 } from "@workspace/ui/components/table"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
+import { Textarea } from "@workspace/ui/components/textarea"
 
 function text(locale: "vi" | "en", vi: string, en: string) {
   return locale === "vi" ? vi : en
+}
+
+type CoachMessage = {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  createdAt: string
+  steps?: string[]
+  sources?: CoachSource[]
+}
+
+type CoachSource = {
+  label: string
+  detail: string
+}
+
+type CoachResponse = {
+  answer: string
+  steps: string[]
+  sources: CoachSource[]
+}
+
+function normalizeQuestion(question: string) {
+  return question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+}
+
+function describeTransactions(
+  transactions: Transaction[],
+  locale: "vi" | "en",
+  limit = 3
+) {
+  if (transactions.length === 0) {
+    return text(locale, "chưa có giao dịch nào", "no transactions yet")
+  }
+
+  return transactions
+    .slice(0, limit)
+    .map(
+      (transaction) =>
+        `${transaction.merchant}: ${formatCurrency(Math.abs(transaction.amount), locale)} (${transaction.category})`
+    )
+    .join("; ")
+}
+
+function buildCoachAnswer(
+  question: string,
+  transactions: Transaction[],
+  locale: "vi" | "en"
+) {
+  return buildCoachResponse(question, transactions, locale).answer
+}
+
+function buildCoachResponse(
+  question: string,
+  transactions: Transaction[],
+  locale: "vi" | "en"
+): CoachResponse {
+  const summary = summarize(transactions)
+  const normalized = normalizeQuestion(question)
+  const expenses = transactions.filter((transaction) => transaction.amount < 0)
+  const recurring = transactions.filter((transaction) => transaction.recurring)
+  const pending = transactions.filter(
+    (transaction) => transaction.status === "NEEDS_REVIEW"
+  )
+  const recent = [...transactions]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5)
+  const largestExpenses = [...expenses]
+    .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+    .slice(0, 5)
+  const recurringTotal = recurring.reduce(
+    (sum, transaction) => sum + Math.abs(transaction.amount),
+    0
+  )
+  const topCategory = summary.byCategory[0]
+  const sources: CoachSource[] = [
+    {
+      label: text(locale, "W4 learner guide", "W4 learner guide"),
+      detail:
+        "docs/W4/W4_learner_guide_vi.md - RAG levels, source citation, tool use, memory, observability",
+    },
+    {
+      label: text(locale, "W4 project announcement", "W4 project announcement"),
+      detail:
+        "docs/W4/W4_project_announcement_vi.md - L1-L4 requirements and source/tool evaluation criteria",
+    },
+    {
+      label: text(locale, "Money Coach summary", "Money Coach summary"),
+      detail: text(
+        locale,
+        `Tổng hợp ${transactions.length} giao dịch đã lưu trong trình duyệt`,
+        `Aggregated ${transactions.length} transactions stored in the browser`
+      ),
+    },
+    {
+      label: text(locale, "Stored transactions", "Stored transactions"),
+      detail: text(
+        locale,
+        "Dữ liệu giao dịch local từ CSV đã import, không gọi Bedrock trong v1",
+        "Local transaction data from imported CSV, no Bedrock call in v1"
+      ),
+    },
+  ]
+  const baseSteps = [
+    text(
+      locale,
+      "Xác định intent câu hỏi và map vào nhóm insight phù hợp.",
+      "Identify the question intent and map it to the relevant insight type."
+    ),
+    text(
+      locale,
+      "Đọc summary và các giao dịch local cần thiết thay vì gửi toàn bộ dữ liệu đi nơi khác.",
+      "Read the local summary and relevant transactions instead of sending the full dataset elsewhere."
+    ),
+    text(
+      locale,
+      "Áp dụng nguyên tắc W4: trả lời dựa trên nguồn cụ thể và hiển thị nguồn đã dùng.",
+      "Apply the W4 principle: answer from explicit sources and show which sources were used."
+    ),
+  ]
+
+  function response(answer: string, extraStep: string): CoachResponse {
+    return {
+      answer,
+      steps: [...baseSteps, extraStep],
+      sources,
+    }
+  }
+
+  if (transactions.length === 0) {
+    return response(
+      text(
+        locale,
+        "Mình chưa thấy giao dịch nào để phân tích. Hãy import CSV sao kê trước, sau đó mình có thể tóm tắt chi tiêu, khoản định kỳ và giao dịch cần review.",
+        "I do not see any transactions to analyze yet. Import a statement CSV first, then I can summarize spending, recurring payments, and transactions that need review."
+      ),
+      text(
+        locale,
+        "Không có giao dịch nên chỉ trả về hướng dẫn bước tiếp theo.",
+        "No transactions were available, so return the next actionable step."
+      )
+    )
+  }
+
+  if (
+    normalized.includes("subscription") ||
+    normalized.includes("dang ky") ||
+    normalized.includes("dinh ky") ||
+    normalized.includes("recurring")
+  ) {
+    return response(
+      text(
+        locale,
+        `Bạn có ${formatCurrency(recurringTotal, locale)} khoản định kỳ được đánh dấu. Các khoản nổi bật: ${describeTransactions(recurring, locale)}.`,
+        `You have ${formatCurrency(recurringTotal, locale)} in marked recurring payments. Notable items: ${describeTransactions(recurring, locale)}.`
+      ),
+      text(
+        locale,
+        "Lọc các giao dịch recurring và cộng tổng giá trị tuyệt đối.",
+        "Filter recurring transactions and sum their absolute value."
+      )
+    )
+  }
+
+  if (
+    normalized.includes("review") ||
+    normalized.includes("kiem tra") ||
+    normalized.includes("xac nhan")
+  ) {
+    return response(
+      text(
+        locale,
+        `${pending.length} giao dịch đang chờ xác nhận. Ưu tiên kiểm tra: ${describeTransactions(pending, locale)}.`,
+        `${pending.length} transactions are pending confirmation. Review these first: ${describeTransactions(pending, locale)}.`
+      ),
+      text(
+        locale,
+        "Lọc các giao dịch có trạng thái NEEDS_REVIEW để ưu tiên human review.",
+        "Filter transactions with NEEDS_REVIEW status to prioritize human review."
+      )
+    )
+  }
+
+  if (
+    normalized.includes("gan day") ||
+    normalized.includes("recent") ||
+    normalized.includes("moi nhat")
+  ) {
+    return response(
+      text(
+        locale,
+        `Các giao dịch gần đây nhất: ${describeTransactions(recent, locale, 5)}.`,
+        `Your most recent transactions are: ${describeTransactions(recent, locale, 5)}.`
+      ),
+      text(
+        locale,
+        "Sắp xếp giao dịch theo ngày giảm dần và lấy các dòng mới nhất.",
+        "Sort transactions by date descending and select the newest rows."
+      )
+    )
+  }
+
+  if (
+    normalized.includes("lon nhat") ||
+    normalized.includes("nhieu nhat") ||
+    normalized.includes("top") ||
+    normalized.includes("largest") ||
+    normalized.includes("most")
+  ) {
+    return response(
+      text(
+        locale,
+        `Danh mục chi tiêu lớn nhất là ${topCategory?.category ?? "N/A"} với ${formatCurrency(topCategory?.amount ?? 0, locale)}. Giao dịch chi lớn nhất: ${describeTransactions(largestExpenses, locale, 5)}.`,
+        `Your largest spending category is ${topCategory?.category ?? "N/A"} at ${formatCurrency(topCategory?.amount ?? 0, locale)}. Largest expense transactions: ${describeTransactions(largestExpenses, locale, 5)}.`
+      ),
+      text(
+        locale,
+        "Xếp hạng danh mục và giao dịch chi tiêu theo số tiền tuyệt đối.",
+        "Rank categories and expense transactions by absolute amount."
+      )
+    )
+  }
+
+  if (
+    normalized.includes("cashflow") ||
+    normalized.includes("net") ||
+    normalized.includes("thu nhap") ||
+    normalized.includes("income") ||
+    normalized.includes("tong quan") ||
+    normalized.includes("overview")
+  ) {
+    return response(
+      text(
+        locale,
+        `Tổng quan hiện tại: thu nhập ${formatCurrency(summary.income, locale)}, chi tiêu ${formatCurrency(summary.spend, locale)}, net ${formatCurrency(summary.net, locale)}. Có ${summary.reviewCount} giao dịch cần review.`,
+        `Current overview: income ${formatCurrency(summary.income, locale)}, spend ${formatCurrency(summary.spend, locale)}, net ${formatCurrency(summary.net, locale)}. ${summary.reviewCount} transactions need review.`
+      ),
+      text(
+        locale,
+        "Tính income, spend, net và review count từ summary local.",
+        "Compute income, spend, net, and review count from the local summary."
+      )
+    )
+  }
+
+  return response(
+    text(
+      locale,
+      `Mình thấy tổng chi tiêu là ${formatCurrency(summary.spend, locale)}. Danh mục lớn nhất là ${topCategory?.category ?? "N/A"} với ${formatCurrency(topCategory?.amount ?? 0, locale)}. Có ${summary.reviewCount} giao dịch cần review để insight chính xác hơn.`,
+      `I see total spending of ${formatCurrency(summary.spend, locale)}. Your largest category is ${topCategory?.category ?? "N/A"} at ${formatCurrency(topCategory?.amount ?? 0, locale)}. ${summary.reviewCount} transactions need review for more accurate insights.`
+    ),
+    text(
+      locale,
+      "Không match intent chuyên biệt nên trả về tóm tắt tài chính an toàn.",
+      "No specialized intent matched, so return a safe financial summary."
+    )
+  )
 }
 
 export function MoneySection({ section }: { section: string }) {
@@ -1254,7 +1513,6 @@ function Recurring() {
 
 function CoachWidget() {
   const { state, locale } = useMoneyCoach()
-  const summary = summarize(state.transactions)
   const prompts: [string, string, string] = [
     text(locale, "Tôi chi nhiều nhất vào đâu?", "Where did I spend the most?"),
     text(
@@ -1269,28 +1527,7 @@ function CoachWidget() {
     ),
   ]
   const [question, setQuestion] = React.useState(prompts[0])
-
-  const recurringTotal = state.transactions
-    .filter((transaction) => transaction.recurring)
-    .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
-  const answer = question.toLowerCase().includes("subscription")
-    ? text(
-        locale,
-        `Bạn có ${formatCurrency(recurringTotal, locale)} khoản định kỳ được đánh dấu trong dữ liệu hiện tại.`,
-        `You have ${formatCurrency(recurringTotal, locale)} in recurring payments marked in the current data.`
-      )
-    : question.toLowerCase().includes("review") ||
-        question.toLowerCase().includes("kiểm tra")
-      ? text(
-          locale,
-          `${summary.reviewCount} giao dịch đang chờ xác nhận trước khi insight được xem là hoàn chỉnh.`,
-          `${summary.reviewCount} transactions are pending confirmation before insights are final.`
-        )
-      : text(
-          locale,
-          `Danh mục lớn nhất là ${summary.byCategory[0]?.category ?? "N/A"} với ${formatCurrency(summary.byCategory[0]?.amount ?? 0, locale)}.`,
-          `Your largest category is ${summary.byCategory[0]?.category ?? "N/A"} at ${formatCurrency(summary.byCategory[0]?.amount ?? 0, locale)}.`
-        )
+  const answer = buildCoachAnswer(question, state.transactions, locale)
 
   return (
     <Card className="flex-1 flex flex-col backdrop-blur-md bg-background/80 shadow-lg border-primary/20">
@@ -1329,7 +1566,6 @@ function CoachWidget() {
 
 function Coach() {
   const { state, locale } = useMoneyCoach()
-  const summary = summarize(state.transactions)
   const prompts: [string, string, string] = [
     text(locale, "Tôi chi nhiều nhất vào đâu?", "Where did I spend the most?"),
     text(
@@ -1343,29 +1579,57 @@ function Coach() {
       "Which transactions need review?"
     ),
   ]
-  const [question, setQuestion] = React.useState(prompts[0])
-
-  const recurringTotal = state.transactions
-    .filter((transaction) => transaction.recurring)
-    .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0)
-  const answer = question.toLowerCase().includes("subscription")
-    ? text(
+  const [messages, setMessages] = React.useState<CoachMessage[]>(() => [
+    {
+      id: "assistant-intro",
+      role: "assistant",
+      content: text(
         locale,
-        `Bạn có ${formatCurrency(recurringTotal, locale)} khoản định kỳ được đánh dấu trong dữ liệu hiện tại.`,
-        `You have ${formatCurrency(recurringTotal, locale)} in recurring payments marked in the current data.`
-      )
-    : question.toLowerCase().includes("review") ||
-        question.toLowerCase().includes("kiểm tra")
-      ? text(
-          locale,
-          `${summary.reviewCount} giao dịch đang chờ xác nhận trước khi insight được xem là hoàn chỉnh.`,
-          `${summary.reviewCount} transactions are pending confirmation before insights are final.`
-        )
-      : text(
-          locale,
-          `Danh mục lớn nhất là ${summary.byCategory[0]?.category ?? "N/A"} với ${formatCurrency(summary.byCategory[0]?.amount ?? 0, locale)}.`,
-          `Your largest category is ${summary.byCategory[0]?.category ?? "N/A"} at ${formatCurrency(summary.byCategory[0]?.amount ?? 0, locale)}.`
-        )
+        "Mình có thể phân tích chi tiêu, khoản định kỳ và giao dịch cần review dựa trên dữ liệu đã import.",
+        "I can analyze spending, recurring payments, and transactions that need review based on imported data."
+      ),
+      createdAt: "",
+    },
+  ])
+  const [draft, setDraft] = React.useState("")
+  const [isThinking, setIsThinking] = React.useState(false)
+  const messageCounter = React.useRef(0)
+
+  function sendQuestion(question: string) {
+    const trimmed = question.trim()
+    if (!trimmed || isThinking) return
+
+    messageCounter.current += 1
+    const messageId = messageCounter.current
+    const userMessage: CoachMessage = {
+      id: `user-${messageId}`,
+      role: "user",
+      content: trimmed,
+      createdAt: "",
+    }
+    const coachResponse = buildCoachResponse(trimmed, state.transactions, locale)
+    const assistantMessage: CoachMessage = {
+      id: `assistant-${messageId}`,
+      role: "assistant",
+      content: coachResponse.answer,
+      steps: coachResponse.steps,
+      sources: coachResponse.sources,
+      createdAt: "",
+    }
+
+    setMessages((current) => [...current, userMessage])
+    setDraft("")
+    setIsThinking(true)
+    window.setTimeout(() => {
+      setMessages((current) => [...current, assistantMessage])
+      setIsThinking(false)
+    }, 250)
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    sendQuestion(draft)
+  }
 
   return (
     <Content
@@ -1376,43 +1640,163 @@ function Coach() {
         "Demo insights are grounded in stored transactions and are not investment advice."
       )}
     >
-      <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
+      <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <Card>
           <CardHeader>
             <CardTitle>
               {text(locale, "Gợi ý câu hỏi", "Suggested questions")}
             </CardTitle>
+            <CardDescription>
+              {text(
+                locale,
+                "Bấm một gợi ý hoặc tự nhập câu hỏi ở khung chat.",
+                "Pick a suggestion or type your own question in the chat."
+              )}
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {prompts.map((prompt) => (
               <Button
                 key={prompt}
-                variant={question === prompt ? "secondary" : "ghost"}
+                variant="ghost"
                 className="justify-start text-left whitespace-normal"
-                onClick={() => setQuestion(prompt)}
+                onClick={() => sendQuestion(prompt)}
               >
                 {prompt}
               </Button>
             ))}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-h-[560px]">
           <CardHeader>
             <Badge variant="secondary">
               <BotIcon data-icon="inline-start" />
-              Demo insight
+              {text(locale, "Chat demo", "Demo chat")}
             </Badge>
-            <CardTitle>{question}</CardTitle>
+            <CardTitle>{text(locale, "Hỏi Money Coach", "Ask Money Coach")}</CardTitle>
+            <CardDescription>
+              {text(
+                locale,
+                "Câu trả lời v1 được tạo local từ summary và giao dịch đã lưu.",
+                "V1 answers are generated locally from stored transaction summaries."
+              )}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-5">
-            <p className="text-base leading-7">{answer}</p>
+          <CardContent className="flex min-h-[420px] flex-col gap-4">
+            <ScrollArea className="h-[420px] rounded-lg border bg-muted/20">
+              <div className="flex flex-col gap-3 p-3">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[88%] rounded-lg px-3 py-2 text-sm leading-6 ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "border bg-background"
+                      }`}
+                    >
+                      <p>{message.content}</p>
+                      {message.role === "assistant" && message.steps?.length ? (
+                        <div className="mt-3 flex flex-col gap-2 border-t pt-3">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">
+                              {text(locale, "Cách xử lý", "Processing trace")}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {text(
+                                locale,
+                                "Trace thao tác, không phải chain-of-thought nội bộ.",
+                                "Action trace, not hidden chain-of-thought."
+                              )}
+                            </span>
+                          </div>
+                          <ol className="list-decimal ps-5 text-xs leading-5 text-muted-foreground">
+                            {message.steps.map((step) => (
+                              <li key={step}>{step}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      ) : null}
+                      {message.role === "assistant" && message.sources?.length ? (
+                        <div className="mt-3 flex flex-col gap-2 border-t pt-3">
+                          <Badge variant="outline" className="w-fit">
+                            {text(locale, "Nguồn đã đọc", "Sources read")}
+                          </Badge>
+                          <div className="flex flex-col gap-1.5">
+                            {message.sources.map((source) => (
+                              <div
+                                key={`${message.id}-${source.label}`}
+                                className="rounded-md border bg-muted/30 px-2 py-1.5"
+                              >
+                                <p className="text-xs font-medium">{source.label}</p>
+                                <p className="text-xs leading-5 text-muted-foreground">
+                                  {source.detail}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+                {isThinking ? (
+                  <div className="flex justify-start">
+                    <div className="rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground">
+                      {text(
+                        locale,
+                        "Đang đọc summary, giao dịch local và nguồn W4...",
+                        "Reading summary, local transactions, and W4 sources..."
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </ScrollArea>
+            <form className="flex flex-col gap-2" onSubmit={handleSubmit}>
+              <FieldGroup>
+                <Field>
+                  <Textarea
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault()
+                        sendQuestion(draft)
+                      }
+                    }}
+                    placeholder={text(
+                      locale,
+                      "Hỏi về chi tiêu, subscription, cashflow hoặc giao dịch cần review...",
+                      "Ask about spending, subscriptions, cashflow, or transactions that need review..."
+                    )}
+                    className="min-h-20 resize-none"
+                  />
+                  <FieldDescription>
+                    {text(
+                      locale,
+                      "Nhấn Enter để gửi, Shift+Enter để xuống dòng.",
+                      "Press Enter to send, Shift+Enter for a new line."
+                    )}
+                  </FieldDescription>
+                </Field>
+              </FieldGroup>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={!draft.trim() || isThinking}>
+                  {text(locale, "Gửi", "Send")}
+                  <ArrowRightIcon data-icon="inline-end" />
+                </Button>
+              </div>
+            </form>
             <Alert>
               <SparklesIcon />
               <AlertDescription>
                 {text(
                   locale,
-                  "Nguồn: tổng hợp trên các giao dịch đang lưu trong trình duyệt. Phase AWS sẽ gọi Bedrock qua backend.",
-                  "Source: aggregation over locally stored transactions. The AWS phase will call Bedrock through the backend."
+                  "Nguồn: tổng hợp local trên summary và giao dịch đang lưu trong trình duyệt. Phase AWS sẽ gọi Bedrock qua backend.",
+                  "Source: local aggregation over summaries and transactions stored in the browser. The AWS phase will call Bedrock through the backend."
                 )}
               </AlertDescription>
             </Alert>

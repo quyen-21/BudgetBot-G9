@@ -67,11 +67,14 @@ test('AI Money Coach - comprehensive screenshots', async ({ page }) => {
   await page.goto('http://localhost:3000/app/coach')
   await page.waitForTimeout(800)
   const chatInput = page.locator('textarea, input[type="text"]').first()
-  if (await chatInput.isVisible({ timeout: 3000 })) {
-    await chatInput.fill('Xin chào! Phân tích chi tiêu tháng này giúp tôi.')
-    const sendBtn = page.locator('button[type="submit"], button').filter({ hasText: /Gửi|Send/i }).first()
-    if (await sendBtn.isVisible({ timeout: 2000 })) await sendBtn.click()
-  }
+  await expect(chatInput).toBeVisible({ timeout: 3000 })
+  await chatInput.fill('Xin chào! Phân tích chi tiêu tháng này giúp tôi.')
+  const sendBtn = page.locator('button[type="submit"], button').filter({ hasText: /Gửi|Send/i }).first()
+  await expect(sendBtn).toBeVisible({ timeout: 2000 })
+  await sendBtn.click()
+  await expect(page.locator('text=/tổng chi tiêu|total spending|Tổng quan|overview/i').first()).toBeVisible({ timeout: 3000 })
+  await expect(page.locator('text=/Nguồn đã đọc|Sources read/i').first()).toBeVisible({ timeout: 3000 })
+  await expect(page.locator('text=/W4 learner guide/i').first()).toBeVisible({ timeout: 3000 })
   await page.waitForTimeout(1200)
   await page.screenshot({ path: path.join(screenshotsDir, '11_coach.png'), fullPage: true })
 
