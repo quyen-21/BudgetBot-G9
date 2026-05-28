@@ -26,7 +26,8 @@ interface MoneyCoachContextValue {
     rememberRule?: boolean
   ) => Promise<void>
   askCoach: (
-    message: string
+    message: string,
+    image?: string | null
   ) => Promise<{ answer: string; steps?: string[]; sources?: any[] }>
   toggleRecurring: (id: string) => void
   updateBudget: (category: Category, limit: number) => void
@@ -355,13 +356,14 @@ export function MoneyCoachProvider({
 
   const askCoach = React.useCallback(
     async (
-      message: string
+      message: string,
+      image?: string | null
     ): Promise<{ answer: string; steps?: string[]; sources?: any[] }> => {
       try {
         const res = await fetch(`${API_BASE_URL}/chat`, {
           method: "POST",
           headers: getAuthHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({ message }),
+          body: JSON.stringify({ message, image: image || undefined }),
         })
         if (!res.ok) {
           throw new Error("Chat request failed")

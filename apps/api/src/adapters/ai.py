@@ -50,6 +50,26 @@ def _parse_json_response(text: str) -> dict:
     return {"category": "Other", "confidence": 0.2}
 
 
+def _parse_base64_image(base64_str: str) -> tuple[bytes, str]:
+    """Decode base64 string to raw image bytes and determine image format (png, jpeg, gif, webp)."""
+    import base64
+    if "," in base64_str:
+        header, base64_str = base64_str.split(",", 1)
+        import re
+        match = re.search(r"image/(\w+)", header)
+        img_format = match.group(1) if match else "png"
+    else:
+        img_format = "png"
+    
+    if img_format == "jpg":
+        img_format = "jpeg"
+    elif img_format not in {"png", "jpeg", "gif", "webp"}:
+        img_format = "png"
+        
+    img_bytes = base64.b64decode(base64_str)
+    return img_bytes, img_format
+
+
 class BedrockAI:
     def __init__(self, region: str, model_id: str):
         import boto3
@@ -75,7 +95,7 @@ class BedrockAI:
             print(f"Bedrock Categorize Error: {e}")
             return {"category": "Other", "confidence": 0.0}
 
-    def chat(self, user_id: str, question: str) -> dict:
+    def chat(self, user_id: str, question: str, image: str | None = None) -> dict:
         """AI Money Coach powered by Bedrock Converse API Tool Use (Client-managed RAG & Actions)."""
         
         # 1. Định nghĩa danh sách các Tools chuẩn JSON Schema gửi cho Bedrock
@@ -175,7 +195,23 @@ You have secure access to the user's database through the provided tools.
 - You must speak the same language as the user's question (usually Vietnamese)."""
 
         # Bắt đầu luồng gọi Agentic Tool Calling
-        messages = [{"role": "user", "content": [{"text": question}]}]
+        content_blocks = []
+        if image:
+            try:
+                img_bytes, img_format = _parse_base64_image(image)
+                content_blocks.append({
+                    "image": {
+                        "format": img_format,
+                        "source": {
+                            "bytes": img_bytes
+                        }
+                    }
+                })
+            except Exception as e:
+                print(f"Error parsing base64 image in BedrockAI: {e}")
+        
+        content_blocks.append({"text": question})
+        messages = [{"role": "user", "content": content_blocks}]
         max_steps = 5  # Giới hạn số bước để tránh vòng lặp vô hạn
         tools_called = []
         
@@ -330,7 +366,7 @@ class LocalAI:
             pass
         return {"category": "Other", "confidence": 0.1}
 
-    def chat(self, user_id: str, question: str) -> dict:
+    def chat(self, user_id: str, question: str, image: str | None = None) -> dict:
         return {
             "answer": "Xin lỗi, AI Coach đang chạy ở chế độ Offline (LocalAI). Vui lòng cấu hình Bedrock để trò chuyện thực tế.",
             "steps": []
@@ -366,7 +402,7 @@ class OllamaAI:
             print(f"Ollama Error: {e}")
             return {"category": "Other", "confidence": 0.0}
 
-    def chat(self, user_id: str, question: str) -> dict:
+    def chat(self, user_id: str, question: str, image: str | None = None) -> dict:
         prompt = f"""You are a helpful and intelligent AI Money Coach. Answer the user's question.
 User ID: {user_id}
 Question: {question}

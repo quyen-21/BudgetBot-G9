@@ -124,19 +124,21 @@ async def upload(
 
 class ChatMessage(BaseModel):
     message: str
+    image: Optional[str] = None
 
 @app.post("/chat")
 def chat(
     payload: ChatMessage,
     user_id: str = Depends(get_current_user),
 ) -> dict:
-    if not payload.message.strip():
-        raise _bad_request("EMPTY_MESSAGE", "Message cannot be empty")
+    if not payload.message.strip() and not payload.image:
+        raise _bad_request("EMPTY_MESSAGE", "Message or image must be provided")
     return handlers.handle_chat(
         user_id=user_id,
         question=payload.message,
         userstore=userstore,
         ai_client=ai_client,
+        image=payload.image,
     )
 
 

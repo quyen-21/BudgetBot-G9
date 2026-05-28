@@ -126,6 +126,7 @@ type CoachMessage = {
   createdAt: string
   steps?: string[]
   sources?: CoachSource[]
+  image?: string
 }
 
 type CoachSource = {
@@ -1747,11 +1748,44 @@ function Coach() {
   ])
   const [draft, setDraft] = React.useState("")
   const [isThinking, setIsThinking] = React.useState(false)
+  const [attachedImage, setAttachedImage] = React.useState<string | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
   const messageCounter = React.useRef(0)
+
+  function handleFileSelect(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setAttachedImage(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+    event.target.value = ""
+  }
+
+  function handlePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const items = event.clipboardData.items
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile()
+        if (file) {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            setAttachedImage(reader.result as string)
+          }
+          reader.readAsDataURL(file)
+          event.preventDefault()
+          break
+        }
+      }
+    }
+  }
 
   async function sendQuestion(question: string) {
     const trimmed = question.trim()
-    if (!trimmed || isThinking) return
+    if (!trimmed && !attachedImage) return
+    if (isThinking) return
 
     messageCounter.current += 1
     const messageId = messageCounter.current
@@ -1759,15 +1793,19 @@ function Coach() {
       id: `user-${messageId}`,
       role: "user",
       content: trimmed,
+      image: attachedImage || undefined,
       createdAt: "",
     }
 
+    const currentImage = attachedImage
+
     setMessages((current) => [...current, userMessage])
     setDraft("")
+    setAttachedImage(null)
     setIsThinking(true)
 
     try {
-      const res = await askCoach(trimmed)
+      const res = await askCoach(trimmed, currentImage)
       const assistantMessage: CoachMessage = {
         id: `assistant-${messageId}`,
         role: "assistant",
@@ -1865,6 +1903,12 @@ function Coach() {
                           : "border bg-background"
                       }`}
                     >
+                      {message.image ? (
+                        <div className="mb-2 max-w-xs overflow-hidden rounded-md border bg-muted/20">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={message.image} alt="Attachment" className="max-h-48 object-contain" />
+                        </div>
+                      ) : null}
                       <p>{message.content}</p>
                       {message.role === "assistant" && message.steps?.length ? (
                         <div className="mt-3 flex flex-col gap-2 border-t pt-3">
@@ -1926,6 +1970,21 @@ function Coach() {
                 ) : null}
               </div>
             </ScrollArea>
+            {attachedImage && (
+              <div className="relative mb-2 w-fit overflow-hidden rounded-md border bg-muted/20 p-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={attachedImage} alt="Preview" className="max-h-24 object-contain rounded" />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full p-0"
+                  onClick={() => setAttachedImage(null)}
+                >
+                  <span className="text-[10px] font-bold">X</span>
+                </Button>
+              </div>
+            )}
             <form className="flex flex-col gap-2" onSubmit={handleSubmit}>
               <FieldGroup>
                 <Field>
@@ -1938,24 +1997,49 @@ function Coach() {
                         sendQuestion(draft)
                       }
                     }}
+                    onPaste={handlePaste}
                     placeholder={text(
                       locale,
-                      "Hỏi về chi tiêu, subscription, cashflow hoặc giao dịch cần review...",
-                      "Ask about spending, subscriptions, cashflow, or transactions that need review..."
+                      "Hỏi về chi tiêu, hoặc dán (Ctrl+V) / tải lên ảnh hóa đơn để AI tự thêm giao dịch...",
+                      "Ask about spending, or paste (Ctrl+V) / upload receipt image for AI to auto-add..."
                     )}
                     className="min-h-20 resize-none"
                   />
                   <FieldDescription>
                     {text(
                       locale,
-                      "Nhấn Enter để gửi, Shift+Enter để xuống dòng.",
-                      "Press Enter to send, Shift+Enter for a new line."
+                      "Nhấn Enter để gửi, Shift+Enter để xuống dòng. Dán (Ctrl+V) để đính kèm ảnh.",
+                      "Press Enter to send, Shift+Enter for a new line. Paste (Ctrl+V) to attach image."
                     )}
                   </FieldDescription>
                 </Field>
               </FieldGroup>
-              <div className="flex justify-end">
-                <Button type="submit" disabled={!draft.trim() || isThinking}>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isThinking}
+                    title={text(locale, "Đính kèm ảnh hóa đơn/sao kê", "Attach receipt/statement image")}
+                  >
+                    <UploadIcon className="h-4 w-4" />
+                  </Button>
+                  {attachedImage && (
+                    <span className="text-xs text-muted-foreground font-medium">
+                      {text(locale, "Đã chọn 1 ảnh 🖼️", "1 image attached 🖼️")}
+                    </span>
+                  )}
+                </div>
+                <Button type="submit" disabled={(!draft.trim() && !attachedImage) || isThinking}>
                   {text(locale, "Gửi", "Send")}
                   <ArrowRightIcon data-icon="inline-end" />
                 </Button>
