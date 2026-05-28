@@ -125,6 +125,9 @@ Objective:
 - Use Lambda alarms `Backend5xxOrErrorRateHigh` and `BackendHighLatency` to identify backend-related public outage.
 
 Alarms:
+
+Chi tiết: [01 - Public HTTPS App Unavailable](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable.md)
+
 | Alarm | Source | Condition | Action |
 | --- | --- | --- | --- |
 | `PublicEndpointUnavailable` | `CloudWatchSynthetics/SuccessPercent` | `< 100`, 1 period, missing data breaching | Child alarm |
@@ -155,6 +158,9 @@ Objective:
 - Page only through `BackendComputeCritical` when compute signal is combined with `UserFacingCritical`.
 
 Alarms:
+
+Chi tiết: [02 - Backend Compute Failure](evidence_images/monitoring/Full_Observability/alarm/02_backend_compute_failure.md)
+
 | Alarm | Source | Condition | Action |
 | --- | --- | --- | --- |
 | `ComputeExecutionErrorsHigh` | `AWS/Lambda Errors`, metric math `chat + upload` | `>= 1`, 2 periods | Child alarm |
@@ -180,6 +186,9 @@ Objective:
 - Page only through `AiFeatureCritical` when AI failure/quota pressure is combined with `UserFacingCritical` or `BackendComputeCritical`.
 
 Alarms:
+
+Chi tiết: [03 - AI Feature End-to-End Failure](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure.md)
+
 | Alarm | Source | Condition | Action |
 | --- | --- | --- | --- |
 | `AiInvocationErrorRateHigh` | `AWS/Bedrock InvocationClientErrors / Invocations` metric math | `> 5%`, 2 periods | Child alarm |
