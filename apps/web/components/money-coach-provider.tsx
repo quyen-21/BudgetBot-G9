@@ -7,6 +7,7 @@ import {
   type MoneyState,
   createSeedState,
 } from "@/lib/money-coach"
+import { CognitoUserPool, AuthenticationDetails, CognitoUser } from "amazon-cognito-identity-js"
 
 type Locale = "vi" | "en"
 
@@ -16,7 +17,7 @@ interface MoneyCoachContextValue {
   hydrated: boolean
   signedIn: boolean
   setLocale: (locale: Locale) => void
-  signIn: () => void
+  signIn: (email?: string, password?: string) => Promise<void>
   signOut: () => void
   addImport: (filename: string, content: string) => Promise<number>
   reviewTransaction: (
@@ -175,19 +176,43 @@ export function MoneyCoachProvider({
     setLocaleState(nextLocale)
   }, [])
 
-  const signIn = React.useCallback(() => {
+  const signIn = React.useCallback(async (email?: string, password?: string) => {
     const domain = process.env.NEXT_PUBLIC_COGNITO_DOMAIN
     const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID
+    const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || "us-west-2_zoNJGWYHv"
     const redirectUri =
       process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI ||
       (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
 
-    if (domain && clientId) {
+    if (email && password && clientId && userPoolId) {
+      // Direct login using custom UI
+      const poolData = { UserPoolId: userPoolId, ClientId: clientId }
+      const userPool = new CognitoUserPool(poolData)
+      const authenticationDetails = new AuthenticationDetails({ Username: email, Password: password })
+      const cognitoUser = new CognitoUser({ Username: email, Pool: userPool })
+
+      return new Promise<void>((resolve, reject) => {
+        cognitoUser.authenticateUser(authenticationDetails, {
+          onSuccess: (result) => {
+            window.localStorage.setItem("cognito-id-token", result.getIdToken().getJwtToken())
+            window.localStorage.setItem("cognito-access-token", result.getAccessToken().getJwtToken())
+            setSignedIn(true)
+            resolve()
+          },
+          onFailure: (err) => {
+            console.error("Cognito login error:", err)
+            reject(err)
+          },
+        })
+      })
+    } else if (domain && clientId) {
+      // Fallback to Hosted UI if no email/password provided
       window.location.href = `https://${domain}/login?client_id=${clientId}&response_type=token&scope=openid+email&redirect_uri=${encodeURIComponent(
         redirectUri
       )}`
     } else {
       setSignedIn(true)
+      return Promise.resolve()
     }
   }, [])
 

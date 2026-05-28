@@ -346,22 +346,31 @@ export function AuthPage({ mode }: { mode: string }) {
           ) : null}
           <form
             className="mt-4"
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (isForgot) {
-                setSubmitted(true)
-              } else if (isSignup) {
-                router.push("/auth/verify")
-              } else {
-                enterDemo()
-              }
-            }}
+              onSubmit={async (event) => {
+                event.preventDefault()
+                if (isForgot) {
+                  setSubmitted(true)
+                } else if (isSignup) {
+                  router.push("/auth/verify")
+                } else {
+                  try {
+                    const form = event.currentTarget as HTMLFormElement
+                    const emailInput = form.elements.namedItem("email") as HTMLInputElement
+                    const passwordInput = form.elements.namedItem("password") as HTMLInputElement
+                    await signIn(emailInput?.value, passwordInput?.value)
+                    router.push("/app/overview")
+                  } catch (e) {
+                    alert("Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.")
+                  }
+                }
+              }}
           >
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
                   placeholder="minh@example.com"
                   defaultValue="demo@example.com"
@@ -373,7 +382,7 @@ export function AuthPage({ mode }: { mode: string }) {
                   <FieldLabel htmlFor="password">
                     {locale === "vi" ? "Mật khẩu" : "Password"}
                   </FieldLabel>
-                  <Input id="password" type="password" defaultValue="password123" minLength={8} required />
+                  <Input id="password" name="password" type="password" defaultValue="password123" minLength={8} required />
                   {isSignup ? (
                     <FieldDescription>
                       {locale === "vi"
