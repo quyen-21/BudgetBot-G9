@@ -509,6 +509,9 @@ export function MoneyCoachProvider({
         return summary.rows || summary.transactions?.length || 0
       } catch (error) {
         console.error(error)
+        if (error instanceof Error) {
+          throw error
+        }
         throw new Error("UPLOAD_FAILED")
       }
     },
