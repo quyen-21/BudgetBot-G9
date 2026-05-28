@@ -37,7 +37,7 @@ Action:
 Interpretation:
 - Public endpoint unreachable hoac health check failed.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\01_public_https_app_unavailable\Picture\PublicEndpointUnavailable.png)
+![PublicEndpointUnavailable.png](01_public_https_app_unavailable/Picture/PublicEndpointUnavailable.png)
 
 ### PublicEndpointCanaryFailed
 Purpose:
@@ -63,7 +63,7 @@ Action:
 Interpretation:
 - Canary da chay va xac nhan endpoint fail.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\01_public_https_app_unavailable\Picture\PublicEndpointCanaryFailed.png)
+![PublicEndpointCanaryFailed.png](01_public_https_app_unavailable/Picture/PublicEndpointCanaryFailed.png)
 
 ### Backend5xxOrErrorRateHigh
 Purpose:
@@ -89,7 +89,7 @@ Action:
 Interpretation:
 - Backend co kha nang la nguyen nhan public app fail/degraded.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\01_public_https_app_unavailable\Picture\Backend5xxOrErrorRateHigh.png)
+![Backend5xxOrErrorRateHigh.png](01_public_https_app_unavailable/Picture/Backend5xxOrErrorRateHigh.png)
 
 ### BackendHighLatency
 Purpose:
@@ -115,7 +115,7 @@ Action:
 Interpretation:
 - Backend dang degraded, co nguy co timeout hoac lam canary fail.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\01_public_https_app_unavailable\Picture\BackendHighLatency.png)
+![BackendHighLatency.png](01_public_https_app_unavailable/Picture/BackendHighLatency.png)
 
 ## 4. Composite Alarms
 
@@ -135,7 +135,7 @@ Action:
 Interpretation:
 - User co kha nang dang bi anh huong. Uu tien kiem tra canary run, DNS/TLS/public endpoint, sau do backend logs.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\01_public_https_app_unavailable\Picture\UserFacingCritical.png)
+![UserFacingCritical.png](01_public_https_app_unavailable/Picture/UserFacingCritical.png)
 
 ### UserFacingBackendSuspected
 Purpose:
@@ -153,7 +153,7 @@ Action:
 Interpretation:
 - Public endpoint fail va backend cung loi/cham. Bat dau dieu tra Lambda `budget-bot-chat`, deployment gan nhat, va dependency downstream.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\01_public_https_app_unavailable\Picture\UserFacingBackendSuspected.png)
+![UserFacingBackendSuspected.png](01_public_https_app_unavailable/Picture/UserFacingBackendSuspected.png)
 
 ## 5. Deliverables
 - Alarm: `PublicEndpointUnavailable`
@@ -162,3 +162,4 @@ Interpretation:
 - Alarm: `BackendHighLatency`
 - Composite alarm: `UserFacingCritical`
 - Composite alarm: `UserFacingBackendSuspected`
+

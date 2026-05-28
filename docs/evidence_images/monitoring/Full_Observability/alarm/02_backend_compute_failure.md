@@ -42,7 +42,7 @@ Action:
 Interpretation:
 - Backend Lambda execution errors detected across chat/upload services.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\02_backend_compute_failure\Picture\ComputeExecutionErrorsHigh.png)
+![ComputeExecutionErrorsHigh.png](02_backend_compute_failure/Picture/ComputeExecutionErrorsHigh.png)
 
 ### ComputeThrottleOrConcurrencyLimit
 Purpose:
@@ -72,7 +72,7 @@ Action:
 Interpretation:
 - Backend Lambda bi throttle hoac thieu execution capacity.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\02_backend_compute_failure\Picture\ComputeThrottleOrConcurrencyLimit.png)
+![ComputeThrottleOrConcurrencyLimit.png](02_backend_compute_failure/Picture/ComputeThrottleOrConcurrencyLimit.png)
 
 ### ComputeDurationNearTimeout
 Purpose:
@@ -100,7 +100,7 @@ Action:
 Interpretation:
 - Lambda execution dang cham va gan timeout limit 10 giay.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\02_backend_compute_failure\Picture\ComputeDurationNearTimeout.png)
+![ComputeDurationNearTimeout.png](02_backend_compute_failure/Picture/ComputeDurationNearTimeout.png)
 
 ## 4. Composite Alarms
 
@@ -120,10 +120,11 @@ Action:
 Interpretation:
 - Backend compute signal dang loi/cham/throttle va da co user-facing impact tu alarm `UserFacingCritical`.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\02_backend_compute_failure\Picture\BackendComputeCritical.png)
+![BackendComputeCritical.png](02_backend_compute_failure/Picture/BackendComputeCritical.png)
 
 ## 5. Deliverables
 - Alarm: `ComputeExecutionErrorsHigh`
 - Alarm: `ComputeThrottleOrConcurrencyLimit`
 - Alarm: `ComputeDurationNearTimeout`
 - Composite alarm: `BackendComputeCritical`
+

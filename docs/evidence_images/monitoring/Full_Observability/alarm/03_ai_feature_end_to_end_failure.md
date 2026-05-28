@@ -41,7 +41,7 @@ Action:
 Interpretation:
 - Bedrock invocation dang fail theo ti le cao.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\03_ai_feature_end_to_end_failure\Picture\AiInvocationErrorRateHigh.png)
+![AiInvocationErrorRateHigh.png](03_ai_feature_end_to_end_failure/Picture/AiInvocationErrorRateHigh.png)
 
 ### AiLatencyHigh
 Purpose:
@@ -67,7 +67,7 @@ Action:
 Interpretation:
 - AI dependency cham, co the lam backend timeout hoac workflow cham.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\03_ai_feature_end_to_end_failure\Picture\AiLatencyHigh.png)
+![AiLatencyHigh.png](03_ai_feature_end_to_end_failure/Picture/AiLatencyHigh.png)
 
 ### AiThrottleHigh
 Purpose:
@@ -93,7 +93,7 @@ Action:
 Interpretation:
 - Bedrock token-per-minute quota usage cao, co nguy co throttle hoac degraded latency.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\03_ai_feature_end_to_end_failure\Picture\AiThrottleHigh.png)
+![AiThrottleHigh.png](03_ai_feature_end_to_end_failure/Picture/AiThrottleHigh.png)
 
 ### AiFallbackRateHigh
 Purpose:
@@ -125,7 +125,7 @@ Action:
 Interpretation:
 - AI feature co the degraded am tham du backend van tra HTTP 200.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\03_ai_feature_end_to_end_failure\Picture\AiFallbackRateHigh.png)
+![AiFallbackRateHigh.png](03_ai_feature_end_to_end_failure/Picture/AiFallbackRateHigh.png)
 
 ## 4. Composite Alarms
 
@@ -145,7 +145,7 @@ Action:
 Interpretation:
 - AI dependency co loi/quota pressure va da co user-facing hoac backend compute impact.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\03_ai_feature_end_to_end_failure\Picture\AiFeatureCritical.png)
+![AiFeatureCritical.png](03_ai_feature_end_to_end_failure/Picture/AiFeatureCritical.png)
 
 ### AiFeatureDegraded
 Purpose:
@@ -163,7 +163,7 @@ Action:
 Interpretation:
 - Can kiem tra Bedrock latency, quota usage, fallback logic, va thay doi gan day trong prompt/model/backend.
 
-(docs/evidence_images/monitoring/Full_Observability\alarm\03_ai_feature_end_to_end_failure\Picture\AiFeatureDegraded.png)
+![AiFeatureDegraded.png](03_ai_feature_end_to_end_failure/Picture/AiFeatureDegraded.png)
 
 ## 5. Deliverables
 - Alarm: `AiInvocationErrorRateHigh`
@@ -173,3 +173,4 @@ Interpretation:
 - Composite alarm: `AiFeatureCritical`
 - Composite alarm: `AiFeatureDegraded`
 - Logs metric filter: `budget-bot-hackathon-ai-fallback-filter`
+

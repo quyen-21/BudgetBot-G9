@@ -104,20 +104,107 @@ Respond with JSON only. No explanation.
 | `budget-bot-vpce-sg` | Port 443 TCP — chỉ từ VPC CIDR `10.0.0.0/16` | All traffic | ✅ Chỉ cho phép HTTPS nội bộ VPC |
 
 ## 8. Monitoring (Optional Capability #8: Full Observability)
-- **Full Observability Evidence Folder:** `docs/evidence_images/monitoring/Full_Observability/`
-- **Alarm evidence:**
-  - [Request 01 - Public HTTPS App Unavailable](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable.md)
-  - [Request 02 - Backend Compute Failure](evidence_images/monitoring/Full_Observability/alarm/02_backend_compute_failure.md)
-  - [Request 03 - AI Feature End-to-End Failure](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure.md)
-- **CloudWatch Alarms:** Synthetics public endpoint alarms, Lambda backend compute alarms, Bedrock AI alarms, and composite alarms for user-facing critical impact.
-- **Evidence images:** Stored under `docs/evidence_images/monitoring/Full_Observability/alarm/<task>/Picture/`.
-- **Log Insights Query (đã lưu):**
-  ```sql
-  fields @timestamp, @message, @logStream
-  | filter @message like /ERROR|Exception|Task timed out/
-  | sort @timestamp desc
-  | limit 20
-  ```
+
+### Scope
+CloudWatch monitoring evidence is stored under `docs/evidence_images/monitoring/Full_Observability/`.
+
+This monitoring implementation covers three alarm groups:
+- Public HTTPS availability through CloudWatch Synthetics and supporting Lambda backend signals.
+- Backend compute health for `budget-bot-chat` and `budget-bot-upload` using native `AWS/Lambda` metrics.
+- AI feature health using native `AWS/Bedrock` metrics and a Lambda log-derived fallback metric.
+
+### 8.1 Public HTTPS App Unavailable
+Problem:
+- Detect when the public HTTPS app endpoint cannot be reached from outside the application.
+- User impact: app cannot open, request timeout, health check failure, or unexpected canary failure.
+- System impact: directly affects Core 1 User Interface; Lambda `budget-bot-chat` is used as a supporting root-cause signal.
+
+Objective:
+- Monitor public endpoint with CloudWatch Synthetics canary `budget-bot-hackathon-public-endpoint`.
+- Use `UserFacingCritical` as the main user-facing outage alert.
+- Use Lambda alarms `Backend5xxOrErrorRateHigh` and `BackendHighLatency` to identify backend-related public outage.
+
+Alarms:
+| Alarm | Source | Condition | Action |
+| --- | --- | --- | --- |
+| `PublicEndpointUnavailable` | `CloudWatchSynthetics/SuccessPercent` | `< 100`, 1 period, missing data breaching | Child alarm |
+| `PublicEndpointCanaryFailed` | `CloudWatchSynthetics/Failed` | `Sum >= 1`, 1 period | Child alarm |
+| `Backend5xxOrErrorRateHigh` | `AWS/Lambda Errors`, `budget-bot-chat` | `Sum >= 1`, 2 periods | Supporting child alarm |
+| `BackendHighLatency` | `AWS/Lambda Duration`, `budget-bot-chat` | `p95 >= 3000ms`, 2 periods | Supporting child alarm |
+| `UserFacingCritical` | Composite | `PublicEndpointUnavailable OR PublicEndpointCanaryFailed` | SNS alert |
+| `UserFacingBackendSuspected` | Composite | Public endpoint alarm AND backend error/latency alarm | SNS alert |
+
+Evidence images:
+![PublicEndpointUnavailable](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable/Picture/PublicEndpointUnavailable.png)
+![PublicEndpointCanaryFailed](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable/Picture/PublicEndpointCanaryFailed.png)
+![Backend5xxOrErrorRateHigh](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable/Picture/Backend5xxOrErrorRateHigh.png)
+![BackendHighLatency](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable/Picture/BackendHighLatency.png)
+![UserFacingCritical](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable/Picture/UserFacingCritical.png)
+![UserFacingBackendSuspected](evidence_images/monitoring/Full_Observability/alarm/01_public_https_app_unavailable/Picture/UserFacingBackendSuspected.png)
+
+### 8.2 Backend Compute Failure
+Problem:
+- Detect when backend Lambda compute has execution errors, throttles, or near-timeout duration.
+- User impact: slow requests, 5xx responses, failed upload/chat workflows.
+- System impact: affects Core 2 Application Compute for `budget-bot-chat` and `budget-bot-upload`.
+
+Objective:
+- Use native `AWS/Lambda` metrics: `Errors`, `Throttles`, and `Duration`.
+- Monitor `budget-bot-chat` and `budget-bot-upload` for execution errors and throttles.
+- Monitor `budget-bot-chat` duration against its 10-second timeout.
+- Page only through `BackendComputeCritical` when compute signal is combined with `UserFacingCritical`.
+
+Alarms:
+| Alarm | Source | Condition | Action |
+| --- | --- | --- | --- |
+| `ComputeExecutionErrorsHigh` | `AWS/Lambda Errors`, metric math `chat + upload` | `>= 1`, 2 periods | Child alarm |
+| `ComputeThrottleOrConcurrencyLimit` | `AWS/Lambda Throttles`, metric math `chat + upload` | `>= 1`, 1 period | Child alarm |
+| `ComputeDurationNearTimeout` | `AWS/Lambda Duration`, `budget-bot-chat` | `p95 > 8000ms`, 2 periods | Child alarm |
+| `BackendComputeCritical` | Composite | Compute error/throttle/duration alarm AND `UserFacingCritical` | SNS alert |
+
+Evidence images:
+![ComputeExecutionErrorsHigh](evidence_images/monitoring/Full_Observability/alarm/02_backend_compute_failure/Picture/ComputeExecutionErrorsHigh.png)
+![ComputeThrottleOrConcurrencyLimit](evidence_images/monitoring/Full_Observability/alarm/02_backend_compute_failure/Picture/ComputeThrottleOrConcurrencyLimit.png)
+![ComputeDurationNearTimeout](evidence_images/monitoring/Full_Observability/alarm/02_backend_compute_failure/Picture/ComputeDurationNearTimeout.png)
+![BackendComputeCritical](evidence_images/monitoring/Full_Observability/alarm/02_backend_compute_failure/Picture/BackendComputeCritical.png)
+
+### 8.3 AI Feature End-to-End Failure
+Problem:
+- Detect when the Bedrock-backed AI feature fails, becomes slow, reaches quota pressure, or falls back.
+- User impact: lower-quality fallback, delayed AI response, or failed AI workflow.
+- System impact: affects Core 3 AI/ML Feature and can cascade into backend/user-facing incidents.
+
+Objective:
+- Monitor Bedrock with native `AWS/Bedrock` metrics: invocation error rate, invocation latency, and estimated TPM quota usage.
+- Monitor AI fallback from `/aws/lambda/budget-bot-chat` with CloudWatch Logs metric filter `budget-bot-hackathon-ai-fallback-filter`.
+- Page only through `AiFeatureCritical` when AI failure/quota pressure is combined with `UserFacingCritical` or `BackendComputeCritical`.
+
+Alarms:
+| Alarm | Source | Condition | Action |
+| --- | --- | --- | --- |
+| `AiInvocationErrorRateHigh` | `AWS/Bedrock InvocationClientErrors / Invocations` metric math | `> 5%`, 2 periods | Child alarm |
+| `AiLatencyHigh` | `AWS/Bedrock InvocationLatency` | `p95 > 8000ms`, 2 periods | Degraded child alarm |
+| `AiThrottleHigh` | `AWS/Bedrock EstimatedTPMQuotaUsage` | `Average > 80`, 2 periods | Critical/degraded child alarm |
+| `AiFallbackRateHigh` | `FullObservability/Logs AiFallbackCount` | `Sum >= 1`, 2 periods | Degraded child alarm |
+| `AiFeatureCritical` | Composite | AI error/throttle AND user-facing/backend compute impact | SNS alert |
+| `AiFeatureDegraded` | Composite | AI latency OR fallback OR throttle | No direct action |
+
+Evidence images:
+![AiInvocationErrorRateHigh](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure/Picture/AiInvocationErrorRateHigh.png)
+![AiLatencyHigh](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure/Picture/AiLatencyHigh.png)
+![AiThrottleHigh](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure/Picture/AiThrottleHigh.png)
+![AiFallbackRateHigh](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure/Picture/AiFallbackRateHigh.png)
+![AiFeatureCritical](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure/Picture/AiFeatureCritical.png)
+![AiFeatureDegraded](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure/Picture/AiFeatureDegraded.png)
+
+### Log Insights Query
+```sql
+fields @timestamp, @message, @logStream
+| filter @message like /ERROR|Exception|Task timed out/
+| sort @timestamp desc
+| limit 20
+```
+
 - **Cost Anomaly Detection:** Đã bật để tự động phát hiện chi phí bất thường.
 - **Budget Alert:** Đã thiết lập ngưỡng $80 để ngăn vượt $100 hard cap.
 
