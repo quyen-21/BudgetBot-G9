@@ -224,6 +224,7 @@ export function MoneyCoachProvider({
   const signOut = React.useCallback(() => {
     window.localStorage.removeItem("cognito-id-token")
     window.localStorage.removeItem("cognito-access-token")
+    window.localStorage.removeItem(sessionKey)
     setSignedIn(false)
   }, [])
 
