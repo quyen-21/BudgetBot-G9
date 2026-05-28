@@ -40,7 +40,7 @@ export function MoneyShell({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (hydrated && !signedIn) {
-      router.replace("/auth/sign-in")
+      router.replace("/auth/sign-in/")
     }
   }, [hydrated, router, signedIn])
 
@@ -63,7 +63,7 @@ export function MoneyShell({ children }: { children: React.ReactNode }) {
               {pageName[locale === "vi" ? 0 : 1]}
             </p>
             <div className="hidden lg:flex items-center justify-center flex-1 mx-4">
-              <Link href="/app/import" className="flex items-center gap-2 px-6 py-1.5 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors w-full max-w-md justify-center">
+              <Link href="/app/import/" className="flex items-center gap-2 px-6 py-1.5 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors w-full max-w-md justify-center">
                 <UploadIcon className="h-4 w-4" />
                 <span className="text-sm font-medium">
                   {locale === "vi" ? "[ Kéo thả sao kê CSV vào đây ] 🗂️" : "[ Drag and drop CSV statement here ] 🗂️"}
@@ -93,7 +93,7 @@ export function MoneyShell({ children }: { children: React.ReactNode }) {
             {resolvedTheme === "dark" ? <SunIcon /> : <MoonStarIcon />}
           </Button>
           <Button asChild className="hidden sm:inline-flex lg:hidden">
-            <Link href="/app/import">
+            <Link href="/app/import/">
               <UploadIcon data-icon="inline-start" />
               {locale === "vi" ? "Nhập CSV" : "Import CSV"}
             </Link>

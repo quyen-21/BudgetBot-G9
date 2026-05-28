@@ -228,21 +228,10 @@ export function MoneyCoachProvider({
   }, [])
 
   const signOut = React.useCallback(() => {
-    const domain = process.env.NEXT_PUBLIC_COGNITO_DOMAIN
-    const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID
-    const redirectUri =
-      process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI ||
-      (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
-
     window.localStorage.removeItem("cognito-id-token")
     window.localStorage.removeItem("cognito-access-token")
+    window.localStorage.removeItem(sessionKey)
     setSignedIn(false)
-
-    if (domain && clientId) {
-      window.location.href = `https://${domain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(
-        redirectUri
-      )}`
-    }
   }, [])
 
   const fetchTransactions = React.useCallback(async () => {

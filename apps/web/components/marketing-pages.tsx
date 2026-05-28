@@ -99,7 +99,7 @@ export function LandingPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuItem asChild>
-                    <Link href="/app/overview" className="cursor-pointer w-full">
+                    <Link href="/app/overview/" className="cursor-pointer w-full">
                       <UserIcon className="mr-2 h-4 w-4" />
                       <span>{locale === "vi" ? "Dashboard của tôi" : "My Dashboard"}</span>
                     </Link>
@@ -125,12 +125,12 @@ export function LandingPage() {
           ) : (
             <>
               <Button variant="ghost" asChild className="hidden sm:inline-flex">
-                <Link href="/auth/sign-in">
+                <Link href="/auth/sign-in/">
                   <Copy vi="Đăng nhập" en="Sign in" />
                 </Link>
               </Button>
               <Button asChild>
-                <Link href="/auth/sign-in">
+                <Link href="/auth/sign-in/">
                   <Copy vi="Dùng bản demo" en="Try demo" />
                   <ArrowRightIcon data-icon="inline-end" />
                 </Link>
@@ -172,7 +172,7 @@ export function LandingPage() {
                 </Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="/app/overview">
+                <Link href="/app/overview/">
                   <Copy vi="Xem dashboard" en="View dashboard" />
                 </Link>
               </Button>
@@ -339,7 +339,7 @@ export function AuthPage({ mode }: { mode: string }) {
 
   function enterDemo() {
     signIn()
-    router.push("/app/overview")
+    router.push("/app/overview/")
   }
 
   if (currentMode === "verify") {
@@ -363,7 +363,7 @@ export function AuthPage({ mode }: { mode: string }) {
                 : "Continue with demo account"}
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/auth/sign-in">
+              <Link href="/auth/sign-in/">
                 {locale === "vi" ? "Quay lại đăng nhập" : "Back to sign in"}
               </Link>
             </Button>
@@ -417,14 +417,14 @@ export function AuthPage({ mode }: { mode: string }) {
                 if (isForgot) {
                   setSubmitted(true)
                 } else if (isSignup) {
-                  router.push("/auth/verify")
+                  router.push("/auth/verify/")
                 } else {
                   try {
                     const form = event.currentTarget as HTMLFormElement
                     const emailInput = form.elements.namedItem("email") as HTMLInputElement
                     const passwordInput = form.elements.namedItem("password") as HTMLInputElement
                     await signIn(emailInput?.value, passwordInput?.value)
-                    router.push("/app/overview")
+                    router.push("/app/overview/")
                   } catch (e) {
                     alert("Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.")
                   }
@@ -480,18 +480,18 @@ export function AuthPage({ mode }: { mode: string }) {
           <div className="mt-5 flex justify-between gap-4 text-sm text-muted-foreground">
             {!isSignup && !isForgot ? (
               <>
-                <Link href="/auth/sign-up" className="hover:text-foreground">
+                <Link href="/auth/sign-up/" className="hover:text-foreground">
                   {locale === "vi" ? "Tạo tài khoản" : "Create account"}
                 </Link>
                 <Link
-                  href="/auth/forgot-password"
+                  href="/auth/forgot-password/"
                   className="hover:text-foreground"
                 >
                   {locale === "vi" ? "Quên mật khẩu?" : "Forgot password?"}
                 </Link>
               </>
             ) : (
-              <Link href="/auth/sign-in" className="hover:text-foreground">
+              <Link href="/auth/sign-in/" className="hover:text-foreground">
                 {locale === "vi" ? "Quay lại đăng nhập" : "Back to sign in"}
               </Link>
             )}

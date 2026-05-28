@@ -1,6 +1,6 @@
 import { AuthPageClient } from "./client"
 
-const modes = ["sign-in", "sign-up"]
+const modes = ["sign-in", "sign-up", "forgot-password", "verify"]
 
 export function generateStaticParams() {
   return modes.map((mode) => ({ mode }))
