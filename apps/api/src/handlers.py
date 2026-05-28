@@ -132,21 +132,34 @@ def handle_upload(
     storage,
     userstore,
 ) -> dict:
+    import time
+    start_time = time.time()
+    print(f"[Upload Diagnostics] --- Start handle_upload ---", flush=True)
+
     import_id = "import-" + uuid.uuid4().hex[:8]
     key = f"{user_id}/{safe_upload_filename(filename)}"
+    
+    t0 = time.time()
     rows = _parse_csv(data)
+    print(f"[Upload Diagnostics] Parse CSV took {time.time() - t0:.3f}s. Row count: {len(rows)}", flush=True)
+    
+    t1 = time.time()
     location = storage.put(key, data)
+    print(f"[Upload Diagnostics] storage.put took {time.time() - t1:.3f}s. Location: {location}", flush=True)
     
     rules_applied = 0
     ai_calls = 0
     reviews_needed = 0
 
+    t2 = time.time()
     rules = userstore.list_rules(user_id)
+    print(f"[Upload Diagnostics] userstore.list_rules took {time.time() - t2:.3f}s. Rules loaded: {len(rules)}", flush=True)
     
     txns_with_idx = []
     llm_tasks = []
     
     # 1. Phân loại nhanh các giao dịch khớp Rule
+    t3 = time.time()
     for i, row in enumerate(rows):
         desc = row["description"]
         desc_lower = desc.lower()
@@ -178,23 +191,31 @@ def handle_upload(
         else:
             llm_tasks.append((i, row))
             
+    print(f"[Upload Diagnostics] Rule matching check took {time.time() - t3:.3f}s. Rules applied: {rules_applied}, LLM tasks: {len(llm_tasks)}", flush=True)
+            
     # 2. Xử lý song song các tác vụ gọi LLM (Bedrock) bằng ThreadPoolExecutor (Tối đa 10 threads)
     if llm_tasks:
         from concurrent.futures import ThreadPoolExecutor
+        t_llm = time.time()
+        print(f"[Upload Diagnostics] Starting ThreadPoolExecutor with max 10 workers for {len(llm_tasks)} LLM tasks", flush=True)
         
         def run_categorize(task):
             idx, r = task
+            t_row = time.time()
             try:
                 res = ai_client.categorize(description=r["description"], amount=r["amount"], date=r["date"])
+                print(f"[Upload Diagnostics Thread] Row {idx} Bedrock call took {time.time() - t_row:.3f}s", flush=True)
                 return idx, r, res
             except Exception as e:
-                print(f"Error categorizing row {idx}: {e}")
+                print(f"[Upload Diagnostics Thread] Row {idx} Bedrock call failed after {time.time() - t_row:.3f}s: {e}", flush=True)
                 return idx, r, {"category": "Other", "confidence": 0.0}
         
         max_workers = min(len(llm_tasks), 10)
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             results = list(executor.map(run_categorize, llm_tasks))
             
+        print(f"[Upload Diagnostics] ThreadPoolExecutor finished. Total LLM phase took {time.time() - t_llm:.3f}s", flush=True)
+        
         for idx, r, cat_result in results:
             category = cat_result["category"]
             confidence = float(cat_result["confidence"])
@@ -225,8 +246,12 @@ def handle_upload(
     final_txns = [item[1] for item in txns_with_idx]
     
     # 4. Lưu toàn bộ giao dịch vào database
+    t_db = time.time()
     for txn in final_txns:
         userstore.add_transaction(user_id, txn)
+    print(f"[Upload Diagnostics] DB inserts took {time.time() - t_db:.3f}s for {len(final_txns)} transactions", flush=True)
+
+    print(f"[Upload Diagnostics] --- End handle_upload. Total time: {time.time() - start_time:.3f}s ---", flush=True)
 
     return {
         "id": import_id,

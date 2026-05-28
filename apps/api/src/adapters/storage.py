@@ -5,9 +5,15 @@ from pathlib import Path
 class S3Storage:
     def __init__(self, bucket: str, region: str):
         import boto3
+        from botocore.config import Config
         if not bucket:
             raise ValueError("STORAGE_BUCKET must be set for S3 backend")
-        self.s3 = boto3.client("s3", region_name=region)
+        botocore_config = Config(
+            connect_timeout=3.0,
+            read_timeout=5.0,
+            retries={"max_attempts": 2}
+        )
+        self.s3 = boto3.client("s3", region_name=region, config=botocore_config)
         self.bucket = bucket
 
     def put(self, key: str, data: bytes) -> str:

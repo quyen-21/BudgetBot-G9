@@ -105,7 +105,14 @@ def _emit_ai_metric(metric_name: str, value: float, unit: str = "None", model_id
 class BedrockAI:
     def __init__(self, region: str, model_id: str):
         import boto3
-        self.runtime = boto3.client("bedrock-runtime", region_name=region)
+        from botocore.config import Config
+        # Thiết lập connect và read timeout cực ngắn để tránh treo Lambda khi gặp lỗi mạng/mất kết nối
+        botocore_config = Config(
+            connect_timeout=3.0,
+            read_timeout=5.0,
+            retries={"max_attempts": 1}
+        )
+        self.runtime = boto3.client("bedrock-runtime", region_name=region, config=botocore_config)
         self.model_id = model_id
 
     def categorize(self, description: str, amount: float, date: str) -> dict:
