@@ -1,36 +1,121 @@
 """Endpoint business logic for BudgetBot."""
 import csv
 import io
+import math
+import re
 import uuid
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
+
+
+MAX_CSV_ROWS = 5000
+MAX_DESCRIPTION_LENGTH = 240
+MAX_ABS_AMOUNT = 1_000_000_000_000
+MIN_TXN_DATE = datetime(1970, 1, 1)
+MAX_TXN_DATE = datetime(2100, 12, 31)
+REQUIRED_COLUMNS = {"date", "description", "amount"}
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+AMOUNT_RE = re.compile(r"^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$")
+CONTROL_CHAR_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+class CsvValidationError(ValueError):
+    def __init__(self, code: str, message: str, row_number: int | None = None):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.row_number = row_number
+
+
+def safe_upload_filename(filename: str) -> str:
+    safe_name = Path(filename or "statement.csv").name.strip()
+    if not safe_name or safe_name in {".", ".."}:
+        return "statement.csv"
+    return safe_name
+
+
+def _parse_amount(raw_amount: str) -> float:
+    amount_text = raw_amount.strip()
+    if not AMOUNT_RE.fullmatch(amount_text):
+        raise ValueError("amount format is invalid")
+    return float(amount_text.replace(",", ""))
 
 
 def _parse_csv(data: bytes) -> list:
     """Expect CSV columns: date, description, amount."""
-    text = data.decode("utf-8-sig", errors="replace")
-    reader = csv.reader(io.StringIO(text))
-    rows = list(reader)
+    try:
+        text = data.decode("utf-8-sig", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise CsvValidationError(
+            "INVALID_ENCODING",
+            "CSV must be UTF-8 encoded",
+        ) from exc
+    try:
+        reader = csv.reader(io.StringIO(text), strict=True)
+        rows = list(reader)
+    except csv.Error as exc:
+        raise CsvValidationError("MALFORMED_CSV", "CSV syntax is malformed") from exc
     if not rows:
-        return []
+        raise CsvValidationError("EMPTY_CSV", "CSV file has no rows")
     header = [c.lower().strip() for c in rows[0]]
-    if "date" in header and "amount" in header:
-        idx = {col: i for i, col in enumerate(header)}
-        data_rows = rows[1:]
-    else:
-        idx = {"date": 0, "description": 1, "amount": 2}
-        data_rows = rows
+    if not any(header):
+        raise CsvValidationError("EMPTY_HEADER", "CSV header row is empty")
+    if len(header) != len(set(header)):
+        raise CsvValidationError("DUPLICATE_COLUMNS", "CSV header has duplicate columns")
+    if not REQUIRED_COLUMNS.issubset(set(header)):
+        raise CsvValidationError(
+            "INVALID_COLUMNS",
+            "CSV must include date, description, and amount columns",
+        )
+
+    idx = {col: i for i, col in enumerate(header)}
+    data_rows = rows[1:]
+    if len(data_rows) > MAX_CSV_ROWS:
+        raise CsvValidationError(
+            "TOO_MANY_ROWS",
+            f"CSV must have at most {MAX_CSV_ROWS} transaction rows",
+        )
     parsed = []
-    for r in data_rows:
-        if len(r) < 3 or not r[idx.get("date", 0)].strip():
+    for row_number, r in enumerate(data_rows, start=2):
+        if not any(cell.strip() for cell in r):
             continue
         try:
+            if len(r) != len(header):
+                raise ValueError("row cell count does not match header")
+            if any(idx[column] >= len(r) for column in REQUIRED_COLUMNS):
+                raise ValueError("required cell missing")
+            date = r[idx["date"]].strip()
+            description = r[idx["description"]].strip()
+            amount = _parse_amount(r[idx["amount"]])
+            if not DATE_RE.fullmatch(date):
+                raise ValueError("date format is invalid")
+            parsed_date = datetime.strptime(date, "%Y-%m-%d")
+            if parsed_date < MIN_TXN_DATE or parsed_date > MAX_TXN_DATE:
+                raise ValueError("date is out of supported range")
+            if not description or len(description) > MAX_DESCRIPTION_LENGTH:
+                raise ValueError("description length is invalid")
+            if CONTROL_CHAR_RE.search(description):
+                raise ValueError("description contains control characters")
+            if not math.isfinite(amount):
+                raise ValueError("amount must be finite")
+            if amount == 0:
+                raise ValueError("amount cannot be zero")
+            if abs(amount) > MAX_ABS_AMOUNT:
+                raise ValueError("amount is outside supported range")
             parsed.append({
-                "date": r[idx.get("date", 0)].strip(),
-                "description": r[idx.get("description", 1)].strip(),
-                "amount": float(r[idx.get("amount", 2)].strip().replace(",", "")),
+                "date": date,
+                "description": description,
+                "amount": amount,
             })
         except (ValueError, IndexError):
-            continue
+            raise CsvValidationError(
+                "INVALID_ROW",
+                "CSV row must have YYYY-MM-DD date, non-empty description, and numeric amount",
+                row_number=row_number,
+            )
+    if not parsed:
+        raise CsvValidationError("NO_VALID_ROWS", "CSV has no valid transaction rows")
     return parsed
 
 
@@ -48,9 +133,9 @@ def handle_upload(
     userstore,
 ) -> dict:
     import_id = "import-" + uuid.uuid4().hex[:8]
-    key = f"{user_id}/{filename}"
-    location = storage.put(key, data)
+    key = f"{user_id}/{safe_upload_filename(filename)}"
     rows = _parse_csv(data)
+    location = storage.put(key, data)
     
     rules_applied = 0
     ai_calls = 0

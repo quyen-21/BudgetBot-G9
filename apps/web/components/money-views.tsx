@@ -108,6 +108,17 @@ function text(locale: "vi" | "en", vi: string, en: string) {
   return locale === "vi" ? vi : en
 }
 
+const maxCsvBytes = 2 * 1024 * 1024
+const maxCsvRows = 5000
+const csvMimeTypes = new Set([
+  "",
+  "text/csv",
+  "text/plain",
+  "application/csv",
+  "application/octet-stream",
+  "application/vnd.ms-excel",
+])
+
 type CoachMessage = {
   id: string
   role: "user" | "assistant"
@@ -129,7 +140,10 @@ type CoachResponse = {
 }
 
 function normalizeQuestion(question: string) {
-  return question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  return question
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
 }
 
 function describeTransactions(
@@ -480,7 +494,11 @@ function Overview() {
             <StatCard
               label={text(locale, "Còn có thể chi", "Available to spend")}
               value={formatCurrency(summary.net, locale)}
-              hint={text(locale, "Thu nhập trừ chi tiêu", "Income minus spending")}
+              hint={text(
+                locale,
+                "Thu nhập trừ chi tiêu",
+                "Income minus spending"
+              )}
               positive
             />
             <StatCard
@@ -495,125 +513,132 @@ function Overview() {
             />
           </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>{text(locale, "Dòng tiền", "Cash flow")}</CardTitle>
-            <CardDescription>
-              {text(locale, "Ba tháng gần nhất", "Last three months")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={cashflowConfig}
-              className="h-[260px] w-full"
-            >
-              <AreaChart data={cashflow}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Area
-                  type="monotone"
-                  dataKey="income"
-                  stroke="var(--color-income)"
-                  fill="var(--color-income)"
-                  fillOpacity={0.16}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="spending"
-                  stroke="var(--color-spending)"
-                  fill="var(--color-spending)"
-                  fillOpacity={0.12}
-                />
-              </AreaChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {text(locale, "Chi tiêu theo nhóm", "Spend by category")}
-            </CardTitle>
-            <CardDescription>
-              {text(
-                locale,
-                "Các khoản lớn nhất tháng này",
-                "Largest categories this month"
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={spendingConfig}
-              className="h-[260px] w-full"
-            >
-              <BarChart data={summary.byCategory.slice(0, 5)} layout="vertical">
-                <CartesianGrid horizontal={false} />
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="category"
-                  axisLine={false}
-                  tickLine={false}
-                  width={84}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="amount" fill="var(--color-amount)" radius={6} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {text(locale, "Ưu tiên xem lại", "Review first")}
-          </CardTitle>
-          <CardDescription>
-            {text(
-              locale,
-              "Sửa các phân loại mơ hồ để insight chính xác hơn.",
-              "Correct unclear classifications to improve your insights."
-            )}
-          </CardDescription>
-          <CardAction>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/app/review">
-                {text(locale, "Mở hàng chờ", "Open queue")}
-                <ArrowRightIcon data-icon="inline-end" />
-              </Link>
-            </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          {pending.length ? (
-            <TransactionTable transactions={pending} compact />
-          ) : (
-            <Empty className="border">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <CircleCheckIcon />
-                </EmptyMedia>
-                <EmptyTitle>
-                  {text(locale, "Đã duyệt hết", "All reviewed")}
-                </EmptyTitle>
-                <EmptyDescription>
+          <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+            <Card>
+              <CardHeader>
+                <CardTitle>{text(locale, "Dòng tiền", "Cash flow")}</CardTitle>
+                <CardDescription>
+                  {text(locale, "Ba tháng gần nhất", "Last three months")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={cashflowConfig}
+                  className="h-[260px] w-full"
+                >
+                  <AreaChart data={cashflow}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      stroke="var(--color-income)"
+                      fill="var(--color-income)"
+                      fillOpacity={0.16}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="spending"
+                      stroke="var(--color-spending)"
+                      fill="var(--color-spending)"
+                      fillOpacity={0.12}
+                    />
+                  </AreaChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  {text(locale, "Chi tiêu theo nhóm", "Spend by category")}
+                </CardTitle>
+                <CardDescription>
                   {text(
                     locale,
-                    "Không còn giao dịch cần xác nhận.",
-                    "No transactions await review."
+                    "Các khoản lớn nhất tháng này",
+                    "Largest categories this month"
                   )}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-          </CardContent>
-        </Card>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={spendingConfig}
+                  className="h-[260px] w-full"
+                >
+                  <BarChart
+                    data={summary.byCategory.slice(0, 5)}
+                    layout="vertical"
+                  >
+                    <CartesianGrid horizontal={false} />
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="category"
+                      axisLine={false}
+                      tickLine={false}
+                      width={84}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar
+                      dataKey="amount"
+                      fill="var(--color-amount)"
+                      radius={6}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                {text(locale, "Ưu tiên xem lại", "Review first")}
+              </CardTitle>
+              <CardDescription>
+                {text(
+                  locale,
+                  "Sửa các phân loại mơ hồ để insight chính xác hơn.",
+                  "Correct unclear classifications to improve your insights."
+                )}
+              </CardDescription>
+              <CardAction>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/app/review">
+                    {text(locale, "Mở hàng chờ", "Open queue")}
+                    <ArrowRightIcon data-icon="inline-end" />
+                  </Link>
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              {pending.length ? (
+                <TransactionTable transactions={pending} compact />
+              ) : (
+                <Empty className="border">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <CircleCheckIcon />
+                    </EmptyMedia>
+                    <EmptyTitle>
+                      {text(locale, "Đã duyệt hết", "All reviewed")}
+                    </EmptyTitle>
+                    <EmptyDescription>
+                      {text(
+                        locale,
+                        "Không còn giao dịch cần xác nhận.",
+                        "No transactions await review."
+                      )}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              )}
+            </CardContent>
+          </Card>
         </div>
         {/* CỘT PHẢI (AI Coach) */}
-        <div className="hidden xl:flex flex-col gap-6">
+        <div className="hidden flex-col gap-6 xl:flex">
           <CoachWidget />
         </div>
       </div>
@@ -665,6 +690,127 @@ function ImportStatement() {
   const [error, setError] = React.useState<string | null>(null)
   const [processing, setProcessing] = React.useState(false)
 
+  function validationMessage(code: string) {
+    switch (code) {
+      case "INVALID_FILE_TYPE":
+        return text(
+          locale,
+          "Chỉ chấp nhận file CSV có đuôi .csv.",
+          "Only CSV files with a .csv extension are accepted."
+        )
+      case "INVALID_FILENAME":
+        return text(
+          locale,
+          "Tên file không hợp lệ. Hãy đổi tên file CSV rồi tải lại.",
+          "Filename is invalid. Rename the CSV file and upload it again."
+        )
+      case "FILE_TOO_LARGE":
+        return text(
+          locale,
+          "File CSV phải nhỏ hơn 2 MB.",
+          "CSV file must be smaller than 2 MB."
+        )
+      case "EMPTY_FILE":
+      case "EMPTY_CSV":
+      case "NO_VALID_ROWS":
+        return text(
+          locale,
+          "File CSV không có giao dịch hợp lệ.",
+          "CSV file has no valid transaction rows."
+        )
+      case "INVALID_ENCODING":
+        return text(
+          locale,
+          "File CSV phải dùng mã hóa UTF-8.",
+          "CSV file must use UTF-8 encoding."
+        )
+      case "MALFORMED_CSV":
+        return text(
+          locale,
+          "CSV bị lỗi cú pháp, thường do dấu ngoặc kép hoặc dấu phẩy không đúng.",
+          "CSV syntax is malformed, usually because quotes or commas are not escaped correctly."
+        )
+      case "EMPTY_HEADER":
+        return text(
+          locale,
+          "Dòng header của CSV đang rỗng.",
+          "CSV header row is empty."
+        )
+      case "DUPLICATE_COLUMNS":
+        return text(
+          locale,
+          "CSV có tên cột bị trùng. Hãy giữ mỗi cột một lần.",
+          "CSV has duplicate column names. Keep each column only once."
+        )
+      case "INVALID_COLUMNS":
+        return text(
+          locale,
+          "CSV phải có ba cột: date, description, amount.",
+          "CSV must include date, description, and amount columns."
+        )
+      case "INVALID_ROW":
+        return text(
+          locale,
+          "Mỗi dòng phải có ngày dạng YYYY-MM-DD, mô tả không rỗng và số tiền hợp lệ.",
+          "Each row must have a YYYY-MM-DD date, non-empty description, and numeric amount."
+        )
+      case "TOO_MANY_ROWS":
+        return text(
+          locale,
+          "CSV demo chỉ xử lý tối đa 5.000 dòng mỗi lần.",
+          "Demo CSV import supports up to 5,000 rows at a time."
+        )
+      default:
+        return text(
+          locale,
+          "Không thể xử lý file này.",
+          "This file could not be processed."
+        )
+    }
+  }
+
+  function validateCsvFile(file: File) {
+    if (
+      !file.name.toLowerCase().endsWith(".csv") ||
+      !csvMimeTypes.has(file.type)
+    ) {
+      return "INVALID_FILE_TYPE"
+    }
+    if (file.size > maxCsvBytes) {
+      return "FILE_TOO_LARGE"
+    }
+    if (file.size === 0) {
+      return "EMPTY_FILE"
+    }
+    return null
+  }
+
+  function validateCsvContent(content: string) {
+    const rows = content
+      .replace(/^\uFEFF/, "")
+      .split(/\r?\n/)
+      .filter((row) => row.trim().length > 0)
+    if (rows.length === 0) return "EMPTY_CSV"
+    if (rows.length - 1 > maxCsvRows) return "TOO_MANY_ROWS"
+
+    const headerRow = rows[0]
+    if (!headerRow) return "EMPTY_HEADER"
+    const header = headerRow
+      .split(",")
+      .map((column) => column.trim().toLowerCase())
+      .filter(Boolean)
+    if (header.length === 0) return "EMPTY_HEADER"
+    if (new Set(header).size !== header.length) return "DUPLICATE_COLUMNS"
+    if (
+      !header.includes("date") ||
+      !header.includes("description") ||
+      !header.includes("amount")
+    ) {
+      return "INVALID_COLUMNS"
+    }
+    return null
+  }
+
   async function process(filename: string, content: string) {
     setProcessing(true)
     setError(null)
@@ -679,6 +825,10 @@ function ImportStatement() {
       [88, text(locale, "Đang lưu kết quả", "Saving results")],
     ] as const
     try {
+      const contentValidationCode = validateCsvContent(content)
+      if (contentValidationCode) {
+        throw new Error(contentValidationCode)
+      }
       for (const [value, label] of stages) {
         setProgress(value)
         setStage(label)
@@ -689,19 +839,11 @@ function ImportStatement() {
       setStage(text(locale, "Hoàn tất", "Complete"))
       setResult(rowCount)
     } catch (caught) {
-      const message =
-        caught instanceof Error && caught.message === "INVALID_COLUMNS"
-          ? text(
-              locale,
-              "CSV phải có ba cột: date, description, amount.",
-              "CSV must include date, description, and amount columns."
-            )
-          : text(
-              locale,
-              "Không thể xử lý file này.",
-              "This file could not be processed."
-            )
-      setError(message)
+      setError(
+        validationMessage(
+          caught instanceof Error ? caught.message : "UPLOAD_FAILED"
+        )
+      )
       setProgress(0)
     } finally {
       setProcessing(false)
@@ -738,6 +880,15 @@ function ImportStatement() {
                   onChange={(event) => {
                     const file = event.target.files?.[0]
                     if (file) {
+                      const validationCode = validateCsvFile(file)
+                      if (validationCode) {
+                        setError(validationMessage(validationCode))
+                        setResult(null)
+                        setStage(null)
+                        setProgress(0)
+                        event.target.value = ""
+                        return
+                      }
                       void file
                         .text()
                         .then((content) => process(file.name, content))
@@ -747,8 +898,8 @@ function ImportStatement() {
                 <FieldDescription>
                   {text(
                     locale,
-                    "Chỉ dùng CSV; số âm là chi tiêu, số dương là thu nhập.",
-                    "CSV only; negative values are expenses and positive values are income."
+                    "Chỉ dùng CSV UTF-8 dưới 2 MB, tối đa 5.000 dòng; cần cột date, description, amount.",
+                    "CSV only, UTF-8, under 2 MB, up to 5,000 rows; requires date, description, and amount columns."
                   )}
                 </FieldDescription>
               </Field>
@@ -1530,19 +1681,22 @@ function CoachWidget() {
   const answer = buildCoachAnswer(question, state.transactions, locale)
 
   return (
-    <Card className="flex-1 flex flex-col backdrop-blur-md bg-background/80 shadow-lg border-primary/20">
-      <CardHeader className="pb-3 border-b border-border/50">
-        <Badge variant="secondary" className="w-fit mb-2 bg-primary/10 text-primary hover:bg-primary/20">
-          <BotIcon data-icon="inline-start" className="w-3 h-3 mr-1" />
+    <Card className="flex flex-1 flex-col border-primary/20 bg-background/80 shadow-lg backdrop-blur-md">
+      <CardHeader className="border-b border-border/50 pb-3">
+        <Badge
+          variant="secondary"
+          className="mb-2 w-fit bg-primary/10 text-primary hover:bg-primary/20"
+        >
+          <BotIcon data-icon="inline-start" className="mr-1 h-3 w-3" />
           AI Coach
         </Badge>
         <CardTitle className="text-lg leading-tight">{question}</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4 pt-4 flex-1">
+      <CardContent className="flex flex-1 flex-col gap-4 pt-4">
         <p className="text-sm leading-relaxed">{answer}</p>
-        
+
         <div className="mt-auto space-y-2">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+          <p className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
             {text(locale, "Gợi ý hỏi AI", "Ask AI")}
           </p>
           <div className="flex flex-col gap-1.5">
@@ -1551,7 +1705,7 @@ function CoachWidget() {
                 key={prompt}
                 variant={question === prompt ? "secondary" : "ghost"}
                 size="sm"
-                className="justify-start text-xs text-left whitespace-normal h-auto py-1.5"
+                className="h-auto justify-start py-1.5 text-left text-xs whitespace-normal"
                 onClick={() => setQuestion(prompt)}
               >
                 {prompt}
@@ -1607,7 +1761,11 @@ function Coach() {
       content: trimmed,
       createdAt: "",
     }
-    const coachResponse = buildCoachResponse(trimmed, state.transactions, locale)
+    const coachResponse = buildCoachResponse(
+      trimmed,
+      state.transactions,
+      locale
+    )
     const assistantMessage: CoachMessage = {
       id: `assistant-${messageId}`,
       role: "assistant",
@@ -1673,7 +1831,9 @@ function Coach() {
               <BotIcon data-icon="inline-start" />
               {text(locale, "Chat demo", "Demo chat")}
             </Badge>
-            <CardTitle>{text(locale, "Hỏi Money Coach", "Ask Money Coach")}</CardTitle>
+            <CardTitle>
+              {text(locale, "Hỏi Money Coach", "Ask Money Coach")}
+            </CardTitle>
             <CardDescription>
               {text(
                 locale,
@@ -1719,7 +1879,8 @@ function Coach() {
                           </ol>
                         </div>
                       ) : null}
-                      {message.role === "assistant" && message.sources?.length ? (
+                      {message.role === "assistant" &&
+                      message.sources?.length ? (
                         <div className="mt-3 flex flex-col gap-2 border-t pt-3">
                           <Badge variant="outline" className="w-fit">
                             {text(locale, "Nguồn đã đọc", "Sources read")}
@@ -1730,7 +1891,9 @@ function Coach() {
                                 key={`${message.id}-${source.label}`}
                                 className="rounded-md border bg-muted/30 px-2 py-1.5"
                               >
-                                <p className="text-xs font-medium">{source.label}</p>
+                                <p className="text-xs font-medium">
+                                  {source.label}
+                                </p>
                                 <p className="text-xs leading-5 text-muted-foreground">
                                   {source.detail}
                                 </p>

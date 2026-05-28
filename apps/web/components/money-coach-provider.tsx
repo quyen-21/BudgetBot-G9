@@ -35,12 +35,24 @@ const localeKey = "money-coach-locale-v1"
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
 const USER_ID = "demo-user"
 
+function getAuthHeaders(customHeaders: Record<string, string> = {}): Record<string, string> {
+  const headers: Record<string, string> = { "x-user-id": USER_ID, ...customHeaders }
+  if (typeof window !== "undefined") {
+    const token = window.localStorage.getItem("cognito-id-token")
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+  }
+  return headers
+}
+
 /** Safely coerce any API shape to a plain array of transactions */
 function normalizeTxns(data: unknown): MoneyState["transactions"] {
   if (Array.isArray(data)) return data as MoneyState["transactions"]
   if (data && typeof data === "object") {
     const obj = data as Record<string, unknown>
-    if (Array.isArray(obj["transactions"])) return obj["transactions"] as MoneyState["transactions"]
+    if (Array.isArray(obj["transactions"]))
+      return obj["transactions"] as MoneyState["transactions"]
   }
   return []
 }
@@ -62,21 +74,57 @@ export function MoneyCoachProvider({
   // Initial load
   React.useEffect(() => {
     queueMicrotask(() => {
+      // Parse URL hash for Cognito tokens (OAuth2 Implicit Grant Flow)
+      let hasCognitoTokens = false
+      if (typeof window !== "undefined" && window.location.hash) {
+        try {
+          const hash = window.location.hash.substring(1)
+          const params = new URLSearchParams(hash)
+          const idToken = params.get("id_token")
+          const accessToken = params.get("access_token")
+
+          if (idToken) {
+            window.localStorage.setItem("cognito-id-token", idToken)
+            if (accessToken) {
+              window.localStorage.setItem("cognito-access-token", accessToken)
+            }
+            hasCognitoTokens = true
+            // Clear hash from URL to keep address bar clean
+            window.history.replaceState(
+              null,
+              "",
+              window.location.pathname + window.location.search
+            )
+          }
+        } catch (e) {
+          console.error("Failed to parse Cognito URL hash:", e)
+        }
+      }
+
       const storedLocale = window.localStorage.getItem(localeKey)
-      const storedSession = window.localStorage.getItem(sessionKey)
-      
+      let storedSession = window.localStorage.getItem(sessionKey)
+
+      if (hasCognitoTokens) {
+        storedSession = "signed-in"
+        window.localStorage.setItem(sessionKey, "signed-in")
+      }
+
       if (storedLocale === "vi" || storedLocale === "en") {
         setLocaleState(storedLocale)
       }
-      setSignedIn(storedSession === "signed-in")
       
-      if (storedSession !== "signed-in") {
+      const isUserSignedIn = storedSession === "signed-in"
+      setSignedIn(isUserSignedIn)
+
+      if (!isUserSignedIn) {
         setHydrated(true)
         return
       }
-      
+
       // Fetch data from backend
-      fetch(`${API_BASE_URL}/transactions`, { headers: { "x-user-id": USER_ID } })
+      fetch(`${API_BASE_URL}/transactions`, {
+        headers: getAuthHeaders(),
+      })
         .then((r) => {
           if (!r.ok) throw new Error("Backend failed")
           return r.json()
@@ -90,8 +138,13 @@ export function MoneyCoachProvider({
               try {
                 const parsed = JSON.parse(stored) as MoneyState
                 // Ensure persisted transactions is always an array
-                localState = { ...parsed, transactions: normalizeTxns(parsed.transactions) }
-              } catch {}
+                localState = {
+                  ...parsed,
+                  transactions: normalizeTxns(parsed.transactions),
+                }
+              } catch {
+                localState = current
+              }
             }
             return {
               ...localState,
@@ -122,12 +175,45 @@ export function MoneyCoachProvider({
     setLocaleState(nextLocale)
   }, [])
 
-  const signIn = React.useCallback(() => setSignedIn(true), [])
-  const signOut = React.useCallback(() => setSignedIn(false), [])
+  const signIn = React.useCallback(() => {
+    const domain = process.env.NEXT_PUBLIC_COGNITO_DOMAIN
+    const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID
+    const redirectUri =
+      process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI ||
+      (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+
+    if (domain && clientId) {
+      window.location.href = `https://${domain}/login?client_id=${clientId}&response_type=token&scope=openid+email&redirect_uri=${encodeURIComponent(
+        redirectUri
+      )}`
+    } else {
+      setSignedIn(true)
+    }
+  }, [])
+
+  const signOut = React.useCallback(() => {
+    const domain = process.env.NEXT_PUBLIC_COGNITO_DOMAIN
+    const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID
+    const redirectUri =
+      process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI ||
+      (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+
+    window.localStorage.removeItem("cognito-id-token")
+    window.localStorage.removeItem("cognito-access-token")
+    setSignedIn(false)
+
+    if (domain && clientId) {
+      window.location.href = `https://${domain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(
+        redirectUri
+      )}`
+    }
+  }, [])
 
   const fetchTransactions = React.useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/transactions`, { headers: { "x-user-id": USER_ID } })
+      const res = await fetch(`${API_BASE_URL}/transactions`, {
+        headers: getAuthHeaders(),
+      })
       if (!res.ok) return
       const data = await res.json()
       const txns = normalizeTxns(data)
@@ -137,32 +223,46 @@ export function MoneyCoachProvider({
     }
   }, [])
 
-  const addImport = React.useCallback(async (filename: string, content: string) => {
-    const file = new File([content], filename, { type: "text/csv" })
-    const formData = new FormData()
-    formData.append("file", file)
+  const addImport = React.useCallback(
+    async (filename: string, content: string) => {
+      const file = new File([content], filename, { type: "text/csv" })
+      const formData = new FormData()
+      formData.append("file", file)
 
-    try {
-      const res = await fetch(`${API_BASE_URL}/upload`, {
-        method: "POST",
-        headers: { "x-user-id": USER_ID },
-        body: formData,
-      })
-      if (!res.ok) throw new Error("Upload failed")
-      const summary = await res.json()
+      try {
+        const res = await fetch(`${API_BASE_URL}/upload`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: formData,
+        })
+        if (!res.ok) {
+          let code = "UPLOAD_FAILED"
+          try {
+            const payload = (await res.json()) as {
+              detail?: { code?: string }
+            }
+            code = payload.detail?.code ?? code
+          } catch {
+            code = "UPLOAD_FAILED"
+          }
+          throw new Error(code)
+        }
+        const summary = await res.json()
 
-      await fetchTransactions()
-      
-      setState((current) => ({
-        ...current,
-        imports: [summary, ...current.imports],
-      }))
-      return summary.rows || summary.transactions?.length || 0
-    } catch (error) {
-      console.error(error)
-      throw new Error("UPLOAD_FAILED")
-    }
-  }, [fetchTransactions])
+        await fetchTransactions()
+
+        setState((current) => ({
+          ...current,
+          imports: [summary, ...current.imports],
+        }))
+        return summary.rows || summary.transactions?.length || 0
+      } catch (error) {
+        console.error(error)
+        throw new Error("UPLOAD_FAILED")
+      }
+    },
+    [fetchTransactions]
+  )
 
   const reviewTransaction = React.useCallback(
     async (id: string, category: Category, rememberRule = false) => {
@@ -204,7 +304,7 @@ export function MoneyCoachProvider({
       try {
         await fetch(`${API_BASE_URL}/transactions/${id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json", "x-user-id": USER_ID },
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ category, status: "MANUAL_APPROVED" }),
         })
         if (rememberRule) {
@@ -212,7 +312,7 @@ export function MoneyCoachProvider({
           if (txn) {
             await fetch(`${API_BASE_URL}/rules`, {
               method: "POST",
-              headers: { "Content-Type": "application/json", "x-user-id": USER_ID },
+              headers: getAuthHeaders({ "Content-Type": "application/json" }),
               body: JSON.stringify({ contains: txn.merchant, category }),
             })
           }

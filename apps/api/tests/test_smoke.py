@@ -4,9 +4,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-os.environ.setdefault("AI_BACKEND", "local")
-os.environ.setdefault("STORAGE_BACKEND", "local")
-os.environ.setdefault("USERSTORE_BACKEND", "sqlite")
+os.environ["AI_BACKEND"] = "local"
+os.environ["STORAGE_BACKEND"] = "local"
+os.environ["USERSTORE_BACKEND"] = "sqlite"
 _tmp = tempfile.mkdtemp(prefix="budgetbot-test-")
 os.environ["STORAGE_LOCAL_DIR"] = str(Path(_tmp) / "uploads")
 os.environ["USERSTORE_SQLITE_PATH"] = str(Path(_tmp) / "transactions.db")
@@ -48,6 +48,65 @@ def test_upload_csv_categorizes():
     assert "Food" in cats          # Highlands Coffee
     assert "Income" in cats        # Salary deposit
     assert "Subscriptions" in cats # Netflix
+
+
+def test_upload_rejects_non_csv_extension():
+    r = client.post(
+        "/upload",
+        files={"file": ("statement.txt", SAMPLE_CSV, "text/plain")},
+        headers={"X-User-Id": "alice"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "INVALID_FILE_TYPE"
+
+
+def test_upload_rejects_missing_required_columns():
+    bad_csv = b"""date,memo,total
+2026-05-02,Highlands Coffee,-65000
+"""
+    r = client.post(
+        "/upload",
+        files={"file": ("statement.csv", bad_csv, "text/csv")},
+        headers={"X-User-Id": "alice"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "INVALID_COLUMNS"
+
+
+def test_upload_rejects_invalid_rows():
+    bad_csv = b"""date,description,amount
+2026-05-02,Highlands Coffee,not-a-number
+"""
+    r = client.post(
+        "/upload",
+        files={"file": ("statement.csv", bad_csv, "text/csv")},
+        headers={"X-User-Id": "alice"},
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "INVALID_ROW"
+
+
+def test_update_transaction_rejects_invalid_category_and_status():
+    upload = client.post(
+        "/upload",
+        files={"file": ("statement.csv", SAMPLE_CSV, "text/csv")},
+        headers={"X-User-Id": "validation-user"},
+    )
+    txn_id = upload.json()["sample_categorized"][0]["id"]
+
+    bad_category = client.put(
+        f"/transactions/{txn_id}",
+        json={"category": "Groceries"},
+        headers={"X-User-Id": "validation-user"},
+    )
+    assert bad_category.status_code == 422
+
+    bad_status = client.put(
+        f"/transactions/{txn_id}",
+        json={"status": "DONE"},
+        headers={"X-User-Id": "validation-user"},
+    )
+    assert bad_status.status_code == 422
 
 
 def test_summary_aggregates_per_category():
