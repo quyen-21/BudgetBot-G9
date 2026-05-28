@@ -204,15 +204,17 @@ Evidence images:
 ![AiFeatureDegraded](evidence_images/monitoring/Full_Observability/alarm/03_ai_feature_end_to_end_failure/Picture/AiFeatureDegraded.png)
 
 ### 8.2 Log Insights Query
-```sql
-fields @timestamp, @message, @logStream
-| filter @message like /ERROR|Exception|Task timed out/
-| sort @timestamp desc
-| limit 20
-```
+(evidence_images/monitoring/Full_Observability/alarm/log_insights.png)
+#### Case 1: Public HTTPS App Unavailable (Recent Backend Errors)
+**Mục đích:** 
+Điều tra hệ thống khi nhận được cảnh báo `UserFacingCritical` (ứng dụng web không truy cập được). Truy vấn này lọc toàn bộ API Gateway và Lambda Logs để tìm các request bị lỗi (HTTP 5xx, Timeout, Exception). Mục đích cốt lõi là xác định nhanh `request_id`, `route` bị ảnh hưởng và phân biệt lỗi này là do định tuyến mạng (Public Routing) hay do backend/dependency bị sập.
 
-- **Cost Anomaly Detection:** Đã bật để tự động phát hiện chi phí bất thường.
-- **Budget Alert:** Đã thiết lập ngưỡng $80 để ngăn vượt $100 hard cap.
+**Kết quả:** 
+Truy vấn đã scan hàng trăm records trong vài giây và bắt được chính xác các request gây lỗi. Nhờ việc cài đặt `StructuredLoggingMiddleware` trong code, log được trả về dưới định dạng JSON rất sạch sẽ, hiển thị rõ `httpMethod`, `ip`, và đặc biệt là độ trễ `latency` cùng với `request_id`.
+
+**Đề xuất tiếp theo:** 
+Sử dụng `request_id` thu được từ bảng kết quả để trace (truy vết) xem request này đang gọi vào Route nào. Áp dụng Runbook điều tra để kiểm tra tài nguyên đích (Bedrock/DB) có đang bị quá tải hay sập không.
+
 
 ## 6.5 Measurement & Decisions
 
