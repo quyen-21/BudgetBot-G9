@@ -184,6 +184,7 @@ def handle_upload(
             "category": category,
             "confidence": confidence,
             "status": status,
+            "classifiedBy": "RULE" if matched_rule else "AI",
             "recurring": recurring
         }
         userstore.add_transaction(user_id, txn)
