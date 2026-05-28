@@ -367,6 +367,12 @@ export function MoneyCoachProvider({
           throw new Error("Chat request failed")
         }
         const data = await res.json()
+        
+        // Auto-refresh frontend state if AI modified the database
+        if (data.steps && (data.steps.includes("create_transaction") || data.steps.includes("parse_text_csv"))) {
+          await fetchTransactions()
+        }
+
         return {
           answer: data.answer || "Không có phản hồi từ AI.",
           steps: data.steps || [],
@@ -377,7 +383,7 @@ export function MoneyCoachProvider({
         throw err
       }
     },
-    []
+    [fetchTransactions]
   )
 
   const toggleRecurring = React.useCallback((id: string) => {
@@ -401,7 +407,17 @@ export function MoneyCoachProvider({
     []
   )
 
-  const resetData = React.useCallback(() => setState(createSeedState()), [])
+  const resetData = React.useCallback(async () => {
+    try {
+      await fetch(`${API_BASE_URL}/transactions`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      })
+    } catch (err) {
+      console.error("Failed to clear RDS transactions:", err)
+    }
+    setState(createSeedState())
+  }, [])
 
   const value = React.useMemo(
     () => ({
