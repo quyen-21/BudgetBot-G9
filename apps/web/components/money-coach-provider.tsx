@@ -196,6 +196,7 @@ export function MoneyCoachProvider({
           onSuccess: (result) => {
             window.localStorage.setItem("cognito-id-token", result.getIdToken().getJwtToken())
             window.localStorage.setItem("cognito-access-token", result.getAccessToken().getJwtToken())
+            window.localStorage.setItem(sessionKey, "signed-in")
             setSignedIn(true)
             resolve()
           },
