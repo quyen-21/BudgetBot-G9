@@ -91,6 +91,7 @@ class PostgresUserStore:
                     d["amount"] = float(d["amount"])
                 if d.get("confidence") is not None:
                     d["confidence"] = float(d["confidence"])
+                d["classifiedBy"] = "RULE" if d.get("confidence") == 1.0 else "AI"
                 res.append(d)
             return res
 
@@ -177,6 +178,7 @@ class SQLiteUserStore:
         for r in cur.fetchall():
             d = dict(r)
             d["recurring"] = bool(d["recurring"])
+            d["classifiedBy"] = "RULE" if d.get("confidence") == 1.0 else "AI"
             res.append(d)
         return res
 
