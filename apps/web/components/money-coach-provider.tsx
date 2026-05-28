@@ -72,6 +72,12 @@ export function MoneyCoachProvider({
   children: React.ReactNode
 }) {
   const [state, setState] = React.useState<MoneyState>(createSeedState)
+  const sessionId = React.useMemo(() => {
+    if (typeof window !== "undefined" && typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID()
+    }
+    return "session-" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+  }, [])
   const [locale, setLocaleState] = React.useState<Locale>("vi")
   const [signedIn, setSignedIn] = React.useState(false)
   const [hydrated, setHydrated] = React.useState(false)
@@ -352,7 +358,11 @@ export function MoneyCoachProvider({
         const res = await fetch(`${API_BASE_URL}/chat`, {
           method: "POST",
           headers: getAuthHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({ message, image: image || undefined }),
+          body: JSON.stringify({ 
+            message, 
+            image: image || undefined,
+            session_id: sessionId
+          }),
         })
         if (!res.ok) {
           throw new Error("Chat request failed")
@@ -374,7 +384,7 @@ export function MoneyCoachProvider({
         throw err
       }
     },
-    [fetchTransactions]
+    [fetchTransactions, sessionId]
   )
 
   const toggleRecurring = React.useCallback((id: string) => {

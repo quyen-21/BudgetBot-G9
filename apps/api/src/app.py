@@ -125,6 +125,7 @@ async def upload(
 class ChatMessage(BaseModel):
     message: str
     image: Optional[str] = None
+    session_id: Optional[str] = None
 
 @app.post("/chat")
 def chat(
@@ -139,6 +140,7 @@ def chat(
         userstore=userstore,
         ai_client=ai_client,
         image=payload.image,
+        session_id=payload.session_id,
     )
 
 
