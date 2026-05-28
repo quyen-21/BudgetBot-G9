@@ -162,8 +162,17 @@ async def upload(
     if not data:
         raise _bad_request("EMPTY_FILE", "Uploaded file is empty")
     _validate_upload_metadata(file, data)
+    
+    # 1. Tính mã SHA-256 hash từ nội dung file để kiểm tra trùng lặp
+    import hashlib
+    file_hash = hashlib.sha256(data).hexdigest()
+    
+    # 2. Ngăn chặn upload nếu file đã được upload trước đó
+    if hasattr(userstore, "is_file_uploaded") and userstore.is_file_uploaded(user_id, file_hash):
+        raise _bad_request("DUPLICATE_FILE", "Tệp tin này đã được tải lên trước đó.")
+        
     try:
-        return handlers.handle_upload(
+        res = handlers.handle_upload(
             user_id=user_id,
             filename=file.filename or "statement.csv",
             data=data,
@@ -171,6 +180,12 @@ async def upload(
             storage=storage,
             userstore=userstore,
         )
+        
+        # 3. Đăng ký lưu vết file đã xử lý thành công vào database
+        if hasattr(userstore, "register_uploaded_file"):
+            userstore.register_uploaded_file(user_id, file_hash, file.filename or "statement.csv")
+            
+        return res
     except handlers.CsvValidationError as exc:
         payload = {"row_number": exc.row_number} if exc.row_number is not None else {}
         raise _bad_request(exc.code, exc.message, **payload) from exc

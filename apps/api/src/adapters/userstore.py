@@ -57,6 +57,14 @@ class PostgresUserStore:
                     category TEXT,
                     created_at TIMESTAMPTZ DEFAULT NOW()
                 );
+
+                CREATE TABLE IF NOT EXISTS uploaded_files (
+                    user_id TEXT NOT NULL,
+                    file_hash TEXT NOT NULL,
+                    filename TEXT,
+                    uploaded_at TIMESTAMPTZ DEFAULT NOW(),
+                    PRIMARY KEY (user_id, file_hash)
+                );
             """)
 
     def add_transaction(self, user_id: str, txn: dict) -> None:
@@ -114,6 +122,18 @@ class PostgresUserStore:
     def summary(self, user_id: str, month: str | None = None) -> dict:
         return _aggregate(self.list_transactions(user_id, month))
 
+    def is_file_uploaded(self, user_id: str, file_hash: str) -> bool:
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM uploaded_files WHERE user_id = %s AND file_hash = %s", (user_id, file_hash))
+            return cur.fetchone() is not None
+
+    def register_uploaded_file(self, user_id: str, file_hash: str, filename: str) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO uploaded_files (file_hash, user_id, filename) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                (file_hash, user_id, filename)
+            )
+
 
 class SQLiteUserStore:
     def __init__(self, db_path: str):
@@ -147,6 +167,14 @@ class SQLiteUserStore:
                 contains TEXT,
                 category TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS uploaded_files (
+                user_id TEXT NOT NULL,
+                file_hash TEXT NOT NULL,
+                filename TEXT,
+                uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, file_hash)
             );
         """)
         self.conn.commit()
@@ -199,6 +227,17 @@ class SQLiteUserStore:
 
     def summary(self, user_id: str, month: str | None = None) -> dict:
         return _aggregate(self.list_transactions(user_id, month))
+
+    def is_file_uploaded(self, user_id: str, file_hash: str) -> bool:
+        cur = self.conn.execute("SELECT 1 FROM uploaded_files WHERE user_id = ? AND file_hash = ?", (user_id, file_hash))
+        return cur.fetchone() is not None
+
+    def register_uploaded_file(self, user_id: str, file_hash: str, filename: str) -> None:
+        self.conn.execute(
+            "INSERT OR IGNORE INTO uploaded_files (user_id, file_hash, filename) VALUES (?, ?, ?)",
+            (user_id, file_hash, filename)
+        )
+        self.conn.commit()
 
 
 def _aggregate(rows: list) -> dict:
@@ -269,6 +308,15 @@ class MySQLUserStore:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS uploaded_files (
+                    user_id VARCHAR(255) NOT NULL,
+                    file_hash VARCHAR(255) NOT NULL,
+                    filename VARCHAR(255),
+                    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, file_hash)
+                );
+            """)
 
     def add_transaction(self, user_id: str, txn: dict) -> None:
         with self.conn.cursor() as cur:
@@ -321,3 +369,15 @@ class MySQLUserStore:
 
     def summary(self, user_id: str, month: str | None = None) -> dict:
         return _aggregate(self.list_transactions(user_id, month))
+
+    def is_file_uploaded(self, user_id: str, file_hash: str) -> bool:
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM uploaded_files WHERE user_id = %s AND file_hash = %s", (user_id, file_hash))
+            return cur.fetchone() is not None
+
+    def register_uploaded_file(self, user_id: str, file_hash: str, filename: str) -> None:
+        with self.conn.cursor() as cur:
+            cur.execute(
+                "INSERT IGNORE INTO uploaded_files (user_id, file_hash, filename) VALUES (%s, %s, %s)",
+                (user_id, file_hash, filename)
+            )
