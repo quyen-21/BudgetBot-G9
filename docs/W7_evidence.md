@@ -3,8 +3,9 @@
 ## 1. Cover
 - **Group ID:** G9
 - **Member Names:**
+
 | No. | Name | Member ID |
-|------|------|-----------|
+|---:|---|---|
 | 1 | Trần Văn Đức | XB-DN26-119 |
 | 2 | Nguyễn Hữu Định | XB-DN26-083 |
 | 3 | Trần Đình Bảo Long | XB-DN26-050 |
