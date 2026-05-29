@@ -2,7 +2,15 @@
 
 ## 1. Cover
 - **Group ID:** G9
-- **Member Names:** [Điền tên thành viên]
+- **Member Names:**
+1.Trần Văn Đức 		XB-DN26-119	
+2.Nguyễn Hữu Định 	XB-DN26-083	
+3.Trần Đình Bảo Long 	XB-DN26-050	
+4.Nguyễn Đức Chinh 	XB-DN26-080	
+5.Lê Duy Khánh 		XB-DN26-153	
+6.Trương Thị Mỹ Quyên 	XB-DN26-116	
+7.Trọng Tấn 		XB-DN26-152 	
+8.Lê Trung kiên		XB-DN26-045	
 - **Live URL:** [Điền URL CloudFront — dạng https://xxxxxxx.cloudfront.net]
 - **GitHub Repo:** [Điền link Github]
 
