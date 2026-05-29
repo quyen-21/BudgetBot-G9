@@ -85,11 +85,11 @@ Respond with JSON only. No explanation.
 
 ## 6. Cost Evidence
 *3 ảnh Cost Explorer theo yêu cầu:*
-- [x] Day 1 EOD: `docs/evidence_images/cost/day1_cost.png`
+- [x] Day 1 EOD: `evidence_images/cost/day1_cost.png`
   ![Day 1 Cost](evidence_images/cost/day1_cost.png)
-- [x] Day 2 EOD: `docs/evidence_images/cost/day2_cost.png`
+- [x] Day 2 EOD: `evidence_images/cost/day2_cost.png`
   ![Day 2 Cost](evidence_images/cost/day2_cost.png)
-- [x] Sáng Demo: `docs/evidence_images/cost/demo_cost_1.png` & `demo_cost_2.png`
+- [x] Sáng Demo: `evidence_images/cost/demo_cost_1.png` & `demo_cost_2.png`
   ![Demo Cost 1](evidence_images/cost/demo_cost_1.png)
   ![Demo Cost 2](evidence_images/cost/demo_cost_2.png)
 
@@ -355,27 +355,27 @@ Nhờ việc phân nhóm lỗi rõ ràng, quá trình gỡ lỗi (troubleshoot) 
 
 ### 10.1 Landing Page
 <!-- Ảnh trang chủ giới thiệu sản phẩm -->
-`docs/evidence_images/demo_web/landing_page.png`
+![Landing Page](evidence_images/demo_web/landing_page.png)
 
 ### 10.2 Login / Authentication
 <!-- Ảnh form đăng nhập Cognito SRP -->
-`docs/evidence_images/demo_web/login.png`
+![Login](evidence_images/demo_web/login.png)
 
 ### 10.3 Dashboard Overview
 <!-- Ảnh tổng quan chi tiêu theo tháng, biểu đồ tròn/cột -->
-`docs/evidence_images/demo_web/dashboard.png`
+![Dashboard](evidence_images/demo_web/dashboard.png)
 
 ### 10.4 Upload CSV & AI Categorization
 <!-- Ảnh upload file CSV và kết quả phân loại AI -->
-`docs/evidence_images/demo_web/upload_csv.png`
+![Upload CSV](evidence_images/demo_web/upload_csv.png)
 
 ### 10.5 Transaction List & Review
 <!-- Ảnh danh sách giao dịch, trạng thái NEEDS_REVIEW / AUTO_APPROVED -->
-`docs/evidence_images/demo_web/transactions.png`
+![Transactions](evidence_images/demo_web/transactions.png)
 
 ### 10.6 AI Money Coach (Chat)
 <!-- Ảnh giao diện chat với AI về tài chính -->
-`docs/evidence_images/demo_web/ai_chat.png`
+![AI Chat](evidence_images/demo_web/ai_chat.png)
 
 ---
 
