@@ -348,8 +348,8 @@ export function AuthPage({ mode }: { mode: string }) {
     confirmPassword,
   } = useMoneyCoach()
 
-  const [email, setEmail] = React.useState("demo@example.com")
-  const [password, setPassword] = React.useState("password123")
+  const [email, setEmail] = React.useState("")
+  const [password, setPassword] = React.useState("")
   const [code, setCode] = React.useState("")
   const [newPassword, setNewPassword] = React.useState("")
   const [confirmNewPassword, setConfirmNewPassword] = React.useState("")
