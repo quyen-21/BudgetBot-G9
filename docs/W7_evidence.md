@@ -377,6 +377,12 @@ Nhờ việc phân nhóm lỗi rõ ràng, quá trình gỡ lỗi (troubleshoot) 
 <!-- Ảnh giao diện chat với AI về tài chính -->
 ![AI Chat](evidence_images/demo_web/ai_chat.png)
 
+### 10.7 Video Demo
+<!-- Video trải nghiệm thực tế ứng dụng -->
+![Video Demo](../video/video_demo.mp4)
+
+*Nếu trình duyệt hoặc trình xem của bạn không tự động hiển thị video, bạn có thể xem trực tiếp hoặc tải xuống tại đây: [video_demo.mp4](../video/video_demo.mp4).*
+
 ---
 
 ## 11. Lessons Learned (~200 words)
