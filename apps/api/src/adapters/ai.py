@@ -414,7 +414,6 @@ You have secure access to the user's database through the provided tools.
                 # Lưu lịch sử mới vào DynamoDB
                 if session_id and table is not None:
                     try:
-                        import time
                         new_history = list(history)
                         new_history.append({"role": "user", "content": question})
                         new_history.append({"role": "assistant", "content": final_answer})
