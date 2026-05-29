@@ -70,6 +70,8 @@ def _parse_base64_image(base64_str: str) -> tuple[bytes, str]:
     img_bytes = base64.b64decode(base64_str)
     return img_bytes, img_format
 
+_METRICS_ENABLED = True
+
 
 _METRICS_ENABLED = True
 
