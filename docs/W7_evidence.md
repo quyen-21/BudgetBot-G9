@@ -135,7 +135,15 @@ Respond with JSON only. No explanation.
 > ![VPC Endpoint Security Group](evidence_images/security/sg_vpce.png)
 
 ## 8. Monitoring (Optional Capability #8: Full Observability)
-
+- **Dashboard Screenshot:**![DashBoard](docs/evidence_images/monitoring/Full_Observability/alarm/DashBoard.png)
+- **Mục đích:** Cung cấp cái nhìn tổng quan về sức khỏe hệ thống, giúp trả lời nhanh 4 câu hỏi: Web có truy cập được không? Backend có khỏe không? AI có chậm/bị throttle không? Alarm có hoạt động không?
+- **Các Widgets và Tác dụng (Theo tài liệu Hướng dẫn Vận hành):**
+  1. **App Health:** Theo dõi tỷ lệ thành công (`SuccessPercent`) và số lần thất bại (`Failed`) của CloudWatch Synthetics Canary. Giúp phát hiện ngay lập tức nếu Public Endpoint bị sập.
+  2. **Backend Traffic and Errors:** Theo dõi số lượng cuộc gọi (`Invocations`) và lỗi (`Errors`) của 2 Lambda `chat` và `upload`. Giúp phân biệt lỗi do không có traffic tới hay lỗi do logic code backend.
+  3. **Backend Latency and Throttles:** Đo lường độ trễ p95 (`Duration p95`) và giới hạn đồng thời (`Throttles`) của Lambda. Giúp phát hiện ứng dụng bị chậm hoặc bị thắt cổ chai tài nguyên.
+  4. **AI and Bedrock Health:** Gom nhóm các metrics của AI như `InvocationLatency p95`, `EstimatedTPMQuotaUsage`, và `AiFallbackCount`. Giúp theo dõi tốc độ mô hình Bedrock và mức độ sử dụng Quota, cũng như tần suất AI phải dùng phương án dự phòng.
+  5. **Cost Guard Lambda:** Giám sát Lambda quản lý chi phí để đảm bảo cảnh báo chi phí (Cost Guard) luôn chạy ổn định và không bị lỗi.
+  6. **Alarm Status:** Hiển thị trực quan trạng thái (`OK`, `ALARM`, `INSUFFICIENT_DATA`) của tất cả các cảnh báo quan trọng trong một khung nhìn duy nhất để phản ứng nhanh khi có sự cố.
 ### 8.1 CloudWatch Alarms
 CloudWatch monitoring evidence is stored under `docs/evidence_images/monitoring/Full_Observability/`.
 
